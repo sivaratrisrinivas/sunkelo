@@ -25,28 +25,32 @@ type SSEErrorData = {
   message?: string;
 };
 
+type SSEDoneData = {
+  sourceCount?: number;
+};
+
 const EXAMPLE_PRODUCT_QUERIES = [
   "Redmi Note 15 kaisa hai?",
-  "iPhone 16 Pro Max review",
-  "Samsung Galaxy S24 kemon?",
+  "MacBook Air M3 review",
+  "Sony WH-1000XM5 worth buying?",
 ];
 
 function getNotAProductMessage(languageCode: string | null): string {
   if (!languageCode) {
-    return "I can only help with phone reviews. Try one of these queries.";
+    return "Ask about any product review/comparison. Try one of these queries.";
   }
 
   if (languageCode.startsWith("hi")) {
-    return "Main sirf phone reviews mein madad kar sakta hoon. Inmein se koi query try karo.";
+    return "Main kisi bhi product review/comparison mein madad kar sakta hoon. Inmein se koi query try karo.";
   }
   if (languageCode.startsWith("od")) {
-    return "Mu kebala phone review re sahajya kari paribi. Ehi query mane try karantu.";
+    return "Mu je kaunsi product review/comparison re sahajya kari paribi. Ehi query mane try karantu.";
   }
   if (languageCode.startsWith("bn")) {
-    return "Ami sudhu phone review niye help korte pari. Nicher query gulo try korun.";
+    return "Ami jekono product review/comparison niye help korte pari. Nicher query gulo try korun.";
   }
 
-  return "I can only help with phone reviews. Try one of these queries.";
+  return "Ask about any product review/comparison. Try one of these queries.";
 }
 
 export function VoiceInput({ onTranscript }: VoiceInputProps) {
@@ -110,7 +114,13 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
     }
 
     if (event.type === "done") {
+      const doneData = event.data as SSEDoneData;
       setProgressStep("done");
+      if (typeof doneData.sourceCount === "number") {
+        setStatusText(`Done: analyzed ${doneData.sourceCount} sources`);
+      } else {
+        setStatusText("Done");
+      }
     }
   };
 
@@ -178,7 +188,7 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
         <input
           value={textInput}
           onChange={(event) => setTextInput(event.target.value)}
-          placeholder="Type product name (fallback)"
+          placeholder="Type product query (fallback)"
           className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-500"
         />
         <button

@@ -22,7 +22,7 @@ export type ExtractedEntity = {
 };
 
 const ENTITY_SYSTEM_PROMPT =
-  'You are a phone product entity extractor. Return ONLY JSON with shape {"intent":"product_review"|"unsupported","brand":"string|null","model":"string|null","variant":"string|null"}. If query is not about a phone review intent, return {"intent":"unsupported","brand":null,"model":null,"variant":null}.';
+  'You are a product entity extractor. Return ONLY JSON with shape {"intent":"product_review"|"unsupported","brand":"string|null","model":"string|null","variant":"string|null"}. Mark intent as "product_review" for any product-oriented buying/review/comparison query (phones, laptops, earbuds, TVs, appliances, etc). Use "unsupported" only for non-product topics (weather, jokes, personal chat, etc).';
 
 function extractJson(value: string): string {
   const start = value.indexOf("{");
@@ -86,9 +86,13 @@ export async function resolveCanonicalSlug(input: {
     // Redis alias cache is optional during local/dev verification.
   }
 
-  const existing = await getBySlug(input.extractedSlug);
-  if (existing) {
-    return existing.slug;
+  try {
+    const existing = await getBySlug(input.extractedSlug);
+    if (existing) {
+      return existing.slug;
+    }
+  } catch {
+    // Local/dev DB may be missing migrations; fallback to extracted slug.
   }
 
   return input.extractedSlug;

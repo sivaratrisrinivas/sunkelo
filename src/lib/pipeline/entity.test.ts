@@ -46,6 +46,18 @@ describe("extractIntentAndEntity", () => {
     expect(result.intent).toBe("unsupported");
     expect(result.slug).toBeNull();
   });
+
+  it("supports non-phone products as product intent", async () => {
+    mockCreateChatCompletion.mockResolvedValueOnce(
+      '{"intent":"product_review","brand":"Sony","model":"WH-1000XM5","variant":null}',
+    );
+
+    const result = await extractIntentAndEntity("Sony WH-1000XM5 worth buying?");
+    expect(result.intent).toBe("product_review");
+    expect(result.brand).toBe("Sony");
+    expect(result.model).toBe("WH-1000XM5");
+    expect(result.slug).toBe("sony-wh-1000xm5");
+  });
 });
 
 describe("resolveCanonicalSlug", () => {
@@ -87,5 +99,17 @@ describe("resolveCanonicalSlug", () => {
     });
 
     expect(slug).toBe("unknown-x1");
+  });
+
+  it("falls back to extracted slug when db lookup fails", async () => {
+    mockRedisGet.mockResolvedValueOnce(null);
+    mockGetBySlug.mockRejectedValueOnce(new Error('relation "products" does not exist'));
+
+    const slug = await resolveCanonicalSlug({
+      transcript: "samsung fridge",
+      extractedSlug: "samsung-fridge",
+    });
+
+    expect(slug).toBe("samsung-fridge");
   });
 });

@@ -104,6 +104,7 @@ Detailed product spec lives in `docs/spec.md`.
 ## Local Setup
 
 1. Create `.env.local` and add required keys (see `docs/spec.md` section `7.3 Environment Variables`).
+   - For local stress testing, set `DISABLE_RATE_LIMIT=true` to bypass daily query caps.
 
 2. Install and run:
 

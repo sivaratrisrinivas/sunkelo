@@ -32,10 +32,10 @@ export function ProgressSteps({ currentStep, understoodProduct }: ProgressStepsP
     <ol aria-label="Query progress" className="w-full space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
       {STEPS.map((step) => {
         const active = currentStep !== "error" && currentStep === step.key;
-        const done =
+        const completed =
           currentStep !== "error" &&
-          stepOrder[currentStep as ProgressStepKey] > stepOrder[step.key];
-        const bullet = done ? "✓" : active ? "●" : "○";
+          stepOrder[currentStep as ProgressStepKey] >= stepOrder[step.key];
+        const bullet = completed ? "✓" : active ? "●" : "○";
         const label =
           step.key === "understood" && understoodProduct
             ? `${step.label}: ${understoodProduct}`
@@ -45,10 +45,10 @@ export function ProgressSteps({ currentStep, understoodProduct }: ProgressStepsP
           <li
             key={step.key}
             className={`flex items-center gap-3 text-sm ${
-              active ? "text-zinc-100" : done ? "text-green-300" : "text-zinc-400"
+              completed ? "text-green-300" : active ? "text-zinc-100" : "text-zinc-400"
             }`}
           >
-            <span className={active ? "animate-pulse" : ""} aria-hidden>
+            <span className={active && !completed ? "animate-pulse" : ""} aria-hidden>
               {bullet}
             </span>
             <span>{label}</span>

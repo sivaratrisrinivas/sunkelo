@@ -10,6 +10,14 @@ export type RateLimitResult = {
 };
 
 export async function checkRateLimit(ipHash: string): Promise<RateLimitResult> {
+  if (process.env.DISABLE_RATE_LIMIT === "true") {
+    return {
+      allowed: true,
+      remaining: QUERY_RATE_LIMIT_PER_DAY,
+      resetAt: Date.now() + WINDOW_SECONDS * 1000,
+    };
+  }
+
   const redis = getRedisClient();
   const key = `rate-limit:${ipHash}`;
   const count = await redis.incr(key);

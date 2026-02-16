@@ -66,6 +66,9 @@ export async function translateText(input: string, params: TranslateParams): Pro
   const client = getSarvamClient();
   const response = await client.request<unknown>("/translate", {
     method: "POST",
+    headers: {
+      "api-subscription-key": client.apiKey,
+    },
     body: JSON.stringify(payload),
   });
 

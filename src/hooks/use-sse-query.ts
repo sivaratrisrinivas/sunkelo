@@ -12,6 +12,24 @@ export function useSSEQuery() {
 
   const sendQuery = useCallback(
     async (payload: FormData | { text: string }, onEvent?: SSEHandler): Promise<void> => {
+      const processBlock = (block: string) => {
+        const eventMatch = block.match(/^event:\s*(.+)$/m);
+        const dataMatch = block.match(/^data:\s*(.+)$/m);
+        if (!eventMatch || !dataMatch) return;
+
+        const eventType = eventMatch[1].trim();
+        const parsedData = JSON.parse(dataMatch[1]);
+        onEvent?.({ type: eventType, data: parsedData });
+
+        if (eventType === "error") {
+          setState("error");
+          setError(parsedData?.message ?? "Unknown stream error");
+        }
+        if (eventType === "done") {
+          setState("complete");
+        }
+      };
+
       setState("streaming");
       setError(null);
 
@@ -33,30 +51,20 @@ export function useSSEQuery() {
 
       while (true) {
         const { value, done } = await reader.read();
-        if (done) {
-          break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
+        buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
         const blocks = buffer.split("\n\n");
         buffer = blocks.pop() ?? "";
 
         for (const block of blocks) {
-          const eventMatch = block.match(/^event:\s*(.+)$/m);
-          const dataMatch = block.match(/^data:\s*(.+)$/m);
-          if (!eventMatch || !dataMatch) continue;
+          processBlock(block);
+        }
 
-          const eventType = eventMatch[1].trim();
-          const parsedData = JSON.parse(dataMatch[1]);
-          onEvent?.({ type: eventType, data: parsedData });
-
-          if (eventType === "error") {
-            setState("error");
-            setError(parsedData?.message ?? "Unknown stream error");
+        if (done) {
+          const finalBlock = buffer.trim();
+          if (finalBlock) {
+            processBlock(finalBlock);
           }
-          if (eventType === "done") {
-            setState("complete");
-          }
+          break;
         }
       }
     },

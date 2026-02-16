@@ -77,13 +77,13 @@ export async function POST(request: NextRequest) {
       if (extracted.intent === "unsupported") {
         emitEvent("error", {
           code: "NOT_A_PRODUCT",
-          message: "I can only help with phone reviews. Try asking about a phone model.",
+          message: "Ask about any product review or comparison (phone, laptop, TV, earbuds, etc).",
         });
         emitEvent("done", { cached: false, remaining: rate.remaining });
         return;
       }
 
-      const extractedSlug = extracted.slug ?? "unknown-phone";
+      const extractedSlug = extracted.slug ?? "unknown-product";
       const canonicalSlug = await resolveCanonicalSlug({
         transcript,
         extractedSlug,

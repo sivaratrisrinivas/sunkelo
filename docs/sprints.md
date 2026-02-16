@@ -11,7 +11,7 @@
 | Sprint 1 | ✅ Done | Foundation, tooling, DB/cache layer, shared types, landing shell |
 | Sprint 2 | ✅ Done | Voice capture, STT wrapper, SSE flow, API query route, language badge |
 | Sprint 3 | ✅ Done | Intent/entity extraction, alias resolution, progress steps, non-product UI, Sprint 3 test suite |
-| Sprint 4 | ✅ Done | Firecrawl client/scraper/parsers, Mayura translation wrapper/chunking, source normalization, `/api/sources`, optional contract smoke test |
+| Sprint 4 | ✅ Done | Firecrawl client/scraper/parsers, Mayura translation wrapper/chunking, source normalization, `/api/sources`, optional contract smoke test, any-product intent support, explicit done-state UI |
 | Sprint 5-10 | ⏳ Pending | Planned and tracked below |
 
 ---

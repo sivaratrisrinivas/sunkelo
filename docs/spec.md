@@ -1,12 +1,12 @@
 # SunkeLo — Product Specification
 
-> Voice-first product review aggregator for Tier-2/3 India. Ask about any phone in your language, get a synthesized review back as audio + text.
+> Voice-first product review aggregator for Tier-2/3 India. Ask about any product in your language, get a synthesized review back as audio + text.
 
 ---
 
 ## 1. Executive Summary
 
-India's next 500M internet users are voice-first. Before buying a phone, they watch YouTube reviews -- mostly in Hindi/English. Someone in Odisha or Assam is out of luck. SunkeLo solves this by letting users ask about any phone via voice in any supported Indian language, scraping/aggregating reviews from blogs, e-commerce, and YouTube, synthesizing a balanced opinion via Sarvam-M, and delivering the summary as audio + text in the user's language.
+India's next 500M internet users are voice-first. Before buying products, they watch YouTube reviews -- mostly in Hindi/English. Someone in Odisha or Assam is out of luck. SunkeLo solves this by letting users ask about any product via voice in any supported Indian language, scraping/aggregating reviews from blogs, e-commerce, and YouTube, synthesizing a balanced opinion via Sarvam-M, and delivering the summary as audio + text in the user's language.
 
 ### Implementation Status (Current)
 
@@ -414,7 +414,7 @@ event: error
 data: {"code": "NO_REVIEWS", "message": "Not enough reviews found for this product."}
 
 event: error
-data: {"code": "NOT_A_PRODUCT", "message": "I can only help with phone reviews. Try asking about a phone!"}
+data: {"code": "NOT_A_PRODUCT", "message": "Ask about any product review or comparison."}
 
 event: error
 data: {"code": "STT_FAILED", "message": "Couldn't understand the audio. Please try again."}
@@ -790,6 +790,7 @@ UPSTASH_REDIS_REST_TOKEN=          # Upstash Redis REST token
 NEXT_PUBLIC_APP_URL=               # Public app URL
 CRON_SECRET=                       # Secret for cron job auth
 RATE_LIMIT_PER_DAY=5               # Queries per IP per day
+DISABLE_RATE_LIMIT=false           # Local/dev toggle to bypass query limit when true
 REVIEW_CACHE_TTL_DAYS=7            # Review cache TTL in days
 
 # Analytics
