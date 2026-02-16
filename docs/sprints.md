@@ -10,7 +10,8 @@
 |---|---|---|
 | Sprint 1 | ✅ Done | Foundation, tooling, DB/cache layer, shared types, landing shell |
 | Sprint 2 | ✅ Done | Voice capture, STT wrapper, SSE flow, API query route, language badge |
-| Sprint 3-10 | ⏳ Pending | Planned and tracked below |
+| Sprint 3 | ✅ Done | Intent/entity extraction, alias resolution, progress steps, non-product UI, Sprint 3 test suite |
+| Sprint 4-10 | ⏳ Pending | Planned and tracked below |
 
 ---
 
@@ -72,6 +73,8 @@
 ---
 
 ## Sprint 3: Intent Classification & Entity Extraction
+
+**Status:** ✅ Done
 
 **Sprint Goal:** Voice query parsed into structured product entity. Non-product queries rejected. Product slug resolved.
 

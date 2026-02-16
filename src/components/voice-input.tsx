@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { useSSEQuery } from "@/hooks/use-sse-query";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { LanguageBadge } from "@/components/language-badge";
+import { ProgressSteps } from "@/components/progress-steps";
 
 type VoiceInputProps = {
   onTranscript: (value: string) => void;
@@ -15,8 +16,38 @@ type SSEStatusData = {
   context?: {
     transcript?: string;
     language?: string;
+    product?: string;
   };
 };
+
+type SSEErrorData = {
+  code?: string;
+  message?: string;
+};
+
+const EXAMPLE_PRODUCT_QUERIES = [
+  "Redmi Note 15 kaisa hai?",
+  "iPhone 16 Pro Max review",
+  "Samsung Galaxy S24 kemon?",
+];
+
+function getNotAProductMessage(languageCode: string | null): string {
+  if (!languageCode) {
+    return "I can only help with phone reviews. Try one of these queries.";
+  }
+
+  if (languageCode.startsWith("hi")) {
+    return "Main sirf phone reviews mein madad kar sakta hoon. Inmein se koi query try karo.";
+  }
+  if (languageCode.startsWith("od")) {
+    return "Mu kebala phone review re sahajya kari paribi. Ehi query mane try karantu.";
+  }
+  if (languageCode.startsWith("bn")) {
+    return "Ami sudhu phone review niye help korte pari. Nicher query gulo try korun.";
+  }
+
+  return "I can only help with phone reviews. Try one of these queries.";
+}
 
 export function VoiceInput({ onTranscript }: VoiceInputProps) {
   const recorder = useVoiceRecorder();
@@ -24,6 +55,12 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
   const [textInput, setTextInput] = useState("");
   const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string>("Tap to record");
+  const [progressStep, setProgressStep] = useState<
+    "idle" | "listening" | "understood" | "searching" | "analyzing" | "done" | "error"
+  >("idle");
+  const [understoodProduct, setUnderstoodProduct] = useState<string | null>(null);
+  const [notProductError, setNotProductError] = useState<string | null>(null);
+  const detectedLanguageRef = useRef<string | null>(null);
 
   const isRecording = recorder.state === "recording";
   const isProcessing = recorder.state === "processing" || query.state === "streaming";
@@ -37,16 +74,43 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
   const handleEvent = (event: { type: string; data: unknown }) => {
     if (event.type === "status") {
       const statusData = event.data as SSEStatusData;
-      if (statusData.status === "listening") setStatusText("Listening...");
+      if (statusData.status === "listening") {
+        setNotProductError(null);
+        setProgressStep("listening");
+        setStatusText("Listening...");
+      }
       if (statusData.status === "understood") {
         const transcript = String(statusData.context?.transcript ?? "");
         const languageCode = String(statusData.context?.language ?? "");
+        setProgressStep("understood");
         setStatusText(`Got it: ${transcript}`);
         if (languageCode) {
+          detectedLanguageRef.current = languageCode;
           setDetectedLanguage(languageCode);
         }
         onTranscript(transcript);
       }
+      if (statusData.status === "searching") {
+        const product = statusData.context?.product ?? "";
+        setProgressStep("searching");
+        setUnderstoodProduct(product || null);
+        setStatusText(`Searching: ${product || "phone reviews"}`);
+      }
+      if (statusData.status === "analyzing") {
+        setProgressStep("analyzing");
+      }
+    }
+
+    if (event.type === "error") {
+      const errorData = event.data as SSEErrorData;
+      setProgressStep("error");
+      if (errorData.code === "NOT_A_PRODUCT") {
+        setNotProductError(getNotAProductMessage(detectedLanguageRef.current));
+      }
+    }
+
+    if (event.type === "done") {
+      setProgressStep("done");
     }
   };
 
@@ -58,7 +122,22 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
 
   const submitText = async () => {
     if (!textInput.trim()) return;
+    setNotProductError(null);
+    setUnderstoodProduct(null);
+    setProgressStep("idle");
+    detectedLanguageRef.current = null;
     await query.sendQuery({ text: textInput.trim() }, handleEvent);
+  };
+
+  const submitTextValue = async (value: string) => {
+    const next = value.trim();
+    if (!next) return;
+    setTextInput(next);
+    setNotProductError(null);
+    setUnderstoodProduct(null);
+    setProgressStep("idle");
+    detectedLanguageRef.current = null;
+    await query.sendQuery({ text: next }, handleEvent);
   };
 
   return (
@@ -75,6 +154,10 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
               recorder.stop();
               return;
             }
+            setNotProductError(null);
+            setUnderstoodProduct(null);
+            setProgressStep("idle");
+            detectedLanguageRef.current = null;
             await recorder.start();
           }}
           disabled={isProcessing}
@@ -120,6 +203,28 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
         >
           Send recorded audio
         </button>
+      ) : null}
+
+      <ProgressSteps currentStep={progressStep} understoodProduct={understoodProduct} />
+
+      {notProductError ? (
+        <div className="space-y-3 rounded-lg border border-amber-700/50 bg-amber-950/30 p-3">
+          <p className="text-sm text-amber-200">{notProductError}</p>
+          <div className="flex flex-wrap gap-2">
+            {EXAMPLE_PRODUCT_QUERIES.map((queryText) => (
+              <button
+                key={queryText}
+                type="button"
+                className="rounded-full border border-amber-600/60 px-3 py-1 text-xs text-amber-100 hover:bg-amber-900/40"
+                onClick={() => {
+                  void submitTextValue(queryText);
+                }}
+              >
+                {queryText}
+              </button>
+            ))}
+          </div>
+        </div>
       ) : null}
 
       {query.error ? <p className="text-sm text-red-400">{query.error}</p> : null}

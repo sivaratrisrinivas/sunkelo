@@ -13,6 +13,7 @@ export type PipelineErrorCode =
   | "RATE_LIMITED"
   | "STT_FAILED"
   | "SERVICE_UNAVAILABLE"
+  | "INVALID_INPUT"
   | "UNKNOWN";
 
 export type QueryContext = {

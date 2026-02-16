@@ -75,10 +75,10 @@ Completed:
 
 - **Sprint 1:** foundation, data layer setup, utilities, project tooling
 - **Sprint 2:** voice capture, STT integration layer, SSE pipeline foundation, language badge flow
+- **Sprint 3:** intent/entity extraction, alias resolution, progress steps UI, non-product rejection UI, and dedicated Sprint 3 test coverage
 
 Planned next:
 
-- Intent + entity extraction
 - Multi-source scraping
 - Review synthesis
 - Translation + TTS
@@ -103,15 +103,9 @@ Detailed product spec lives in `docs/spec.md`.
 
 ## Local Setup
 
-1. Copy env template:
+1. Create `.env.local` and add required keys (see `docs/spec.md` section `7.3 Environment Variables`).
 
-```bash
-cp .env.example .env.local
-```
-
-2. Fill required keys in `.env.local`.
-
-3. Install and run:
+2. Install and run:
 
 ```bash
 npm install

@@ -1,4 +1,5 @@
 import { getDbClient } from "@/lib/db/client";
+import { getRedisClient } from "@/lib/cache/client";
 import { toSlug } from "@/lib/utils/slug";
 
 type PhoneSeed = {
@@ -60,9 +61,35 @@ const phones: PhoneSeed[] = [
   { brand: "Honor", model: "Magic 6 Pro", priceRange: "INR 89,999 - 104,999" },
 ];
 
+const ALIAS_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+function buildAliases(phone: PhoneSeed): string[] {
+  const aliases = new Set<string>();
+  const full = `${phone.brand} ${phone.model}`;
+  const normalizedFull = toSlug(full);
+  const normalizedModel = toSlug(phone.model);
+  if (normalizedFull) aliases.add(normalizedFull);
+  if (normalizedModel) aliases.add(normalizedModel);
+
+  const shortModelMatch = phone.model.match(/\b([A-Za-z]+)\s*([0-9]{1,3})\b/);
+  if (shortModelMatch) {
+    aliases.add(toSlug(`${shortModelMatch[1]} ${shortModelMatch[2]}`));
+    aliases.add(toSlug(shortModelMatch[2]));
+  }
+
+  const compactGalaxy = phone.model.match(/Galaxy\s+([A-Z])\s*([0-9]{1,3})/i);
+  if (compactGalaxy) {
+    aliases.add(toSlug(`${compactGalaxy[1]}${compactGalaxy[2]}`));
+  }
+
+  return Array.from(aliases).filter(Boolean);
+}
+
 async function main() {
   const sql = getDbClient();
+  const redis = getRedisClient();
   const topTrendingCount = 10;
+  let aliasCount = 0;
 
   for (let index = 0; index < phones.length; index += 1) {
     const phone = phones[index];
@@ -79,9 +106,19 @@ async function main() {
         is_trending = EXCLUDED.is_trending,
         updated_at = NOW()
     `;
+
+    const aliases = buildAliases(phone);
+    for (const alias of aliases) {
+      await redis.set(`product:alias:${alias}`, slug, {
+        ex: ALIAS_TTL_SECONDS,
+      });
+      aliasCount += 1;
+    }
   }
 
-  console.log(`Seeded ${phones.length} products (${topTrendingCount} trending).`);
+  console.log(
+    `Seeded ${phones.length} products (${topTrendingCount} trending) and ${aliasCount} aliases.`,
+  );
 }
 
 main().catch((error) => {

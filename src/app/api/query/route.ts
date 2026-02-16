@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { checkRateLimit } from "@/lib/cache/rate-limit";
+import { extractIntentAndEntity, resolveCanonicalSlug } from "@/lib/pipeline/entity";
 import { createSSEStream } from "@/lib/pipeline/orchestrator";
 import { transcribeAudio } from "@/lib/sarvam/stt";
 import { MAX_AUDIO_UPLOAD_BYTES } from "@/lib/utils/constants";
@@ -64,22 +65,52 @@ export async function POST(request: NextRequest) {
 
     emitEvent("status", { status: "listening" });
 
-    if (payload.kind === "text") {
+    const handleTranscript = async (transcript: string, language: string) => {
       emitEvent("status", {
         status: "understood",
-        context: { transcript: payload.text, language: "en-IN" },
+        context: { transcript, language },
+      });
+
+      const extracted = await extractIntentAndEntity(transcript);
+      if (extracted.intent === "unsupported") {
+        emitEvent("error", {
+          code: "NOT_A_PRODUCT",
+          message: "I can only help with phone reviews. Try asking about a phone model.",
+        });
+        emitEvent("done", { cached: false, remaining: rate.remaining });
+        return;
+      }
+
+      const extractedSlug = extracted.slug ?? "unknown-phone";
+      const canonicalSlug = await resolveCanonicalSlug({
+        transcript,
+        extractedSlug,
+      });
+      const productLabel =
+        extracted.productName ??
+        canonicalSlug
+          .split("-")
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(" ");
+
+      emitEvent("status", {
+        status: "searching",
+        context: {
+          product: productLabel,
+          productSlug: canonicalSlug,
+        },
       });
       emitEvent("done", { cached: false, remaining: rate.remaining });
+    };
+
+    if (payload.kind === "text") {
+      await handleTranscript(payload.text, "en-IN");
       return;
     }
 
     try {
       const stt = await transcribeAudio(payload.audio);
-      emitEvent("status", {
-        status: "understood",
-        context: { transcript: stt.transcript, language: stt.languageCode },
-      });
-      emitEvent("done", { cached: false, remaining: rate.remaining });
+      await handleTranscript(stt.transcript, stt.languageCode);
     } catch (error) {
       emitEvent("error", {
         code: "STT_FAILED",

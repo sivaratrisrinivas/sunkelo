@@ -12,7 +12,8 @@ India's next 500M internet users are voice-first. Before buying a phone, they wa
 
 - ✅ Sprint 1 completed: project foundation, tooling, DB/cache clients, schema, shared types, utility layer, landing shell
 - ✅ Sprint 2 completed: voice capture + text fallback, STT integration layer, SSE query route and client hook, language badge display
-- ⏳ Sprint 3+ remain in planned state and are tracked in `docs/sprints.md`
+- ✅ Sprint 3 completed: Sarvam chat/entity extraction, alias resolution, searching-status SSE, ProgressSteps UI, non-product rejection UI + tests
+- ⏳ Sprint 4+ remain in planned state and are tracked in `docs/sprints.md`
 
 ### Core Objectives
 

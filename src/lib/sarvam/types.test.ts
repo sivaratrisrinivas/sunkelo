@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sttResponseSchema } from "./types";
+import { chatCompletionResponseSchema, sttResponseSchema } from "./types";
 
 describe("sttResponseSchema", () => {
   it("parses valid payload", () => {
@@ -28,6 +28,39 @@ describe("sttResponseSchema", () => {
         transcript: "ok",
         language_code: "hi-IN",
         language_probability: 2,
+      }),
+    ).toThrow();
+  });
+});
+
+describe("chatCompletionResponseSchema", () => {
+  it("parses valid completion with optional reasoning content", () => {
+    const parsed = chatCompletionResponseSchema.parse({
+      choices: [
+        {
+          finish_reason: "stop",
+          message: {
+            content: '{"intent":"product_review"}',
+            reasoning_content: "internal reasoning",
+          },
+        },
+      ],
+    });
+
+    expect(parsed.choices[0].message.content).toContain("intent");
+  });
+
+  it("fails on invalid finish reason", () => {
+    expect(() =>
+      chatCompletionResponseSchema.parse({
+        choices: [
+          {
+            finish_reason: "invalid",
+            message: {
+              content: "{}",
+            },
+          },
+        ],
       }),
     ).toThrow();
   });
