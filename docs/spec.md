@@ -13,7 +13,8 @@ India's next 500M internet users are voice-first. Before buying a phone, they wa
 - ✅ Sprint 1 completed: project foundation, tooling, DB/cache clients, schema, shared types, utility layer, landing shell
 - ✅ Sprint 2 completed: voice capture + text fallback, STT integration layer, SSE query route and client hook, language badge display
 - ✅ Sprint 3 completed: Sarvam chat/entity extraction, alias resolution, searching-status SSE, ProgressSteps UI, non-product rejection UI + tests
-- ⏳ Sprint 4+ remain in planned state and are tracked in `docs/sprints.md`
+- ✅ Sprint 4 completed: Firecrawl client/scraper/parsers, Mayura translation wrapper + chunking, source normalization to English, `/api/sources` endpoint, optional Firecrawl contract smoke test
+- ⏳ Sprint 5+ remain in planned state and are tracked in `docs/sprints.md`
 
 ### Core Objectives
 
@@ -257,6 +258,8 @@ desitone/
 │   │   └── api/
 │   │       ├── query/
 │   │       │   └── route.ts       # POST: main voice query pipeline (SSE)
+│   │       ├── sources/
+│   │       │   └── route.ts       # POST: scrape + normalize review sources
 │   │       ├── trending/
 │   │       │   └── route.ts       # GET: trending products list
 │   │       └── cron/
@@ -289,6 +292,7 @@ desitone/
 │   │   ├── pipeline/
 │   │   │   ├── intent.ts          # Intent classification (product_review | unsupported)
 │   │   │   ├── entity.ts          # Product entity extraction + normalization
+│   │   │   ├── normalize-sources.ts # Scraped source normalization to English
 │   │   │   ├── synthesize.ts      # Review synthesis prompt + structured output
 │   │   │   ├── localize.ts        # Translation + TTS generation
 │   │   │   └── orchestrator.ts    # Full pipeline coordinator (SSE emitter)
@@ -431,6 +435,38 @@ data: {"code": "STT_FAILED", "message": "Couldn't understand the audio. Please t
       "imageUrl": "...",
       "verdict": "buy",
       "reviewCount": 12
+    }
+  ]
+}
+```
+
+#### `POST /api/sources` — Scrape + Normalize Sources (Sprint 4)
+
+Takes a product slug/name and returns scraped, parsed, English-normalized review sources.
+
+**Request:** `application/json`
+
+```json
+{
+  "productSlug": "redmi-note-15"
+}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "product": "Redmi Note 15",
+  "productSlug": "redmi-note-15",
+  "sourceCount": 3,
+  "sources": [
+    {
+      "url": "https://example.com/review",
+      "title": "Review",
+      "type": "blog",
+      "content": "Normalized english review text...",
+      "originalLanguageCode": "hi-IN",
+      "translatedToEnglish": true
     }
   ]
 }

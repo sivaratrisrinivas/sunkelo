@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 
 import { checkRateLimit } from "@/lib/cache/rate-limit";
+import { scrapeAllSources } from "@/lib/firecrawl/scraper";
 import { extractIntentAndEntity, resolveCanonicalSlug } from "@/lib/pipeline/entity";
+import { normalizeSourcesToEnglish } from "@/lib/pipeline/normalize-sources";
 import { createSSEStream } from "@/lib/pipeline/orchestrator";
 import { transcribeAudio } from "@/lib/sarvam/stt";
 import { MAX_AUDIO_UPLOAD_BYTES } from "@/lib/utils/constants";
@@ -100,7 +102,32 @@ export async function POST(request: NextRequest) {
           productSlug: canonicalSlug,
         },
       });
-      emitEvent("done", { cached: false, remaining: rate.remaining });
+
+      const scrapedSources = await scrapeAllSources(productLabel);
+      const normalizedSources = await normalizeSourcesToEnglish(scrapedSources);
+
+      if (normalizedSources.length === 0) {
+        emitEvent("error", {
+          code: "NO_REVIEWS",
+          message: "This product doesn't have enough reviews yet. Try another popular phone.",
+        });
+        emitEvent("done", { cached: false, remaining: rate.remaining, sourceCount: 0 });
+        return;
+      }
+
+      emitEvent("status", {
+        status: "analyzing",
+        context: {
+          product: productLabel,
+          productSlug: canonicalSlug,
+          sourceCount: normalizedSources.length,
+        },
+      });
+      emitEvent("done", {
+        cached: false,
+        remaining: rate.remaining,
+        sourceCount: normalizedSources.length,
+      });
     };
 
     if (payload.kind === "text") {

@@ -5,6 +5,8 @@ const mockCheckRateLimit = vi.fn();
 const mockTranscribeAudio = vi.fn();
 const mockExtractIntentAndEntity = vi.fn();
 const mockResolveCanonicalSlug = vi.fn();
+const mockScrapeAllSources = vi.fn();
+const mockNormalizeSourcesToEnglish = vi.fn();
 
 vi.mock("@/lib/cache/rate-limit", () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
@@ -17,6 +19,14 @@ vi.mock("@/lib/sarvam/stt", () => ({
 vi.mock("@/lib/pipeline/entity", () => ({
   extractIntentAndEntity: (...args: unknown[]) => mockExtractIntentAndEntity(...args),
   resolveCanonicalSlug: (...args: unknown[]) => mockResolveCanonicalSlug(...args),
+}));
+
+vi.mock("@/lib/firecrawl/scraper", () => ({
+  scrapeAllSources: (...args: unknown[]) => mockScrapeAllSources(...args),
+}));
+
+vi.mock("@/lib/pipeline/normalize-sources", () => ({
+  normalizeSourcesToEnglish: (...args: unknown[]) => mockNormalizeSourcesToEnglish(...args),
 }));
 
 vi.mock("@/lib/pipeline/orchestrator", () => ({
@@ -74,6 +84,19 @@ describe("POST /api/query sprint 3 flow", () => {
       remaining: 4,
       resetAt: Date.now() + 1000,
     });
+    mockScrapeAllSources.mockResolvedValue([
+      { url: "https://example.com/1", title: "R1", type: "blog", content: "raw content" },
+    ]);
+    mockNormalizeSourcesToEnglish.mockResolvedValue([
+      {
+        url: "https://example.com/1",
+        title: "R1",
+        type: "blog",
+        content: "normalized english",
+        translatedToEnglish: false,
+        originalLanguageCode: "en-IN",
+      },
+    ]);
   });
 
   it("emits understood and searching statuses for product intent", async () => {
@@ -100,7 +123,7 @@ describe("POST /api/query sprint 3 flow", () => {
     const body = await response.text();
     const events = parseSSE(body);
 
-    expect(events.map((event) => event.type)).toEqual(["status", "status", "status", "done"]);
+    expect(events.map((event) => event.type)).toEqual(["status", "status", "status", "status", "done"]);
     expect(events[1].data).toMatchObject({
       status: "understood",
       context: { transcript: "Redmi Note 15 kaisa hai?", language: "en-IN" },
@@ -108,6 +131,10 @@ describe("POST /api/query sprint 3 flow", () => {
     expect(events[2].data).toMatchObject({
       status: "searching",
       context: { product: "Redmi Note 15", productSlug: "redmi-note-15" },
+    });
+    expect(events[3].data).toMatchObject({
+      status: "analyzing",
+      context: { product: "Redmi Note 15", productSlug: "redmi-note-15", sourceCount: 1 },
     });
   });
 
@@ -138,5 +165,35 @@ describe("POST /api/query sprint 3 flow", () => {
     expect(events[2].data).toMatchObject({
       code: "NOT_A_PRODUCT",
     });
+  });
+
+  it("emits NO_REVIEWS when scraped sources are empty", async () => {
+    mockExtractIntentAndEntity.mockResolvedValueOnce({
+      intent: "product_review",
+      brand: "Redmi",
+      model: "Note 15",
+      variant: null,
+      slug: "redmi-note-15",
+      productName: "Redmi Note 15",
+    });
+    mockResolveCanonicalSlug.mockResolvedValueOnce("redmi-note-15");
+    mockScrapeAllSources.mockResolvedValueOnce([]);
+    mockNormalizeSourcesToEnglish.mockResolvedValueOnce([]);
+
+    const request = new Request("http://localhost/api/query", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": "4.4.4.4",
+      },
+      body: JSON.stringify({ text: "Redmi Note 15 kaisa hai?" }),
+    }) as NextRequest;
+
+    const response = await POST(request);
+    const body = await response.text();
+    const events = parseSSE(body);
+
+    expect(events.map((event) => event.type)).toEqual(["status", "status", "status", "error", "done"]);
+    expect(events[3].data).toMatchObject({ code: "NO_REVIEWS" });
   });
 });

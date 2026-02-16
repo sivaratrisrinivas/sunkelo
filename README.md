@@ -76,10 +76,10 @@ Completed:
 - **Sprint 1:** foundation, data layer setup, utilities, project tooling
 - **Sprint 2:** voice capture, STT integration layer, SSE pipeline foundation, language badge flow
 - **Sprint 3:** intent/entity extraction, alias resolution, progress steps UI, non-product rejection UI, and dedicated Sprint 3 test coverage
+- **Sprint 4:** Firecrawl client + source scraping/parsing, Mayura translation wrapper/chunking, source normalization pipeline, `/api/sources` endpoint, and Sprint 4 test suite
 
 Planned next:
 
-- Multi-source scraping
 - Review synthesis
 - Translation + TTS
 - Caching/performance

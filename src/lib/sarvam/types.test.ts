@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { chatCompletionResponseSchema, sttResponseSchema } from "./types";
+import {
+  chatCompletionResponseSchema,
+  sttResponseSchema,
+  translationRequestSchema,
+  translationResponseSchema,
+} from "./types";
 
 describe("sttResponseSchema", () => {
   it("parses valid payload", () => {
@@ -61,6 +66,32 @@ describe("chatCompletionResponseSchema", () => {
             },
           },
         ],
+      }),
+    ).toThrow();
+  });
+});
+
+describe("translation schemas", () => {
+  it("parses valid translation request and response", () => {
+    const request = translationRequestSchema.parse({
+      input: "यह फोन बहुत अच्छा है",
+      source_language_code: "hi-IN",
+      target_language_code: "en-IN",
+      model: "mayura:v1",
+      mode: "formal",
+    });
+    const response = translationResponseSchema.parse({
+      translated_text: "This phone is very good.",
+    });
+
+    expect(request.model).toBe("mayura:v1");
+    expect(response.translated_text).toBe("This phone is very good.");
+  });
+
+  it("fails when translated text is empty", () => {
+    expect(() =>
+      translationResponseSchema.parse({
+        translated_text: "",
       }),
     ).toThrow();
   });
