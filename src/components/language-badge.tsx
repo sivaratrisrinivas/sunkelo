@@ -7,10 +7,11 @@ type LanguageBadgeProps = {
 export function LanguageBadge({ languageCode }: LanguageBadgeProps) {
   const display = getDisplayName(languageCode);
   const script = getScript(languageCode);
+  const text = display === script ? display : `${display} · ${script}`;
 
   return (
-    <span className="inline-flex items-center rounded-full border border-zinc-600 bg-zinc-900 px-3 py-1 text-xs text-zinc-200">
-      {display} · {script}
+    <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-[10px] font-semibold text-rose-500 transition-all hover:bg-rose-100">
+      {text}
     </span>
   );
 }

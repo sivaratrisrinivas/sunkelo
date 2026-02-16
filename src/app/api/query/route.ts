@@ -6,8 +6,11 @@ import { createReview } from "@/lib/db/reviews";
 import { listTrending, upsertProductBySlug } from "@/lib/db/products";
 import { scrapeAllSources } from "@/lib/firecrawl/scraper";
 import { extractIntentAndEntity, resolveCanonicalSlug } from "@/lib/pipeline/entity";
+import { getLocalizedErrorMessage } from "@/lib/pipeline/localized-errors";
+import { localizeReview } from "@/lib/pipeline/localize";
 import { normalizeSourcesToEnglish } from "@/lib/pipeline/normalize-sources";
 import { createSSEStream } from "@/lib/pipeline/orchestrator";
+import { detectQueryLanguageCode } from "@/lib/pipeline/query-language";
 import {
   collectReviewEvidence,
   getStrictEvidencePolicy,
@@ -80,9 +83,10 @@ export async function POST(request: NextRequest) {
 
   const stream = createSSEStream(async (emitEvent) => {
     if (!rate.allowed) {
+      const message = await getLocalizedErrorMessage("RATE_LIMITED", "en-IN");
       emitEvent("error", {
         code: "RATE_LIMITED",
-        message: "Daily query limit reached",
+        message,
         remaining: rate.remaining,
         resetAt: rate.resetAt,
       });
@@ -92,7 +96,8 @@ export async function POST(request: NextRequest) {
 
     const payload = await parsePayload(request);
     if (payload.kind === "invalid") {
-      emitEvent("error", { code: "INVALID_INPUT", message: payload.message });
+      const message = await getLocalizedErrorMessage("INVALID_INPUT", "en-IN");
+      emitEvent("error", { code: "INVALID_INPUT", message: message || payload.message });
       emitEvent("done", { cached: false, remaining: rate.remaining });
       return;
     }
@@ -108,9 +113,10 @@ export async function POST(request: NextRequest) {
 
       const extracted = await extractIntentAndEntity(transcript);
       if (extracted.intent === "unsupported") {
+        const message = await getLocalizedErrorMessage("NOT_A_PRODUCT", language);
         emitEvent("error", {
           code: "NOT_A_PRODUCT",
-          message: "Ask about any product review or comparison (phone, laptop, TV, earbuds, etc).",
+          message,
         });
         emitEvent("done", { cached: false, remaining: rate.remaining });
         return;
@@ -145,9 +151,10 @@ export async function POST(request: NextRequest) {
 
       if (normalizedSources.length < 2) {
         const suggestions = await getNoReviewSuggestions();
+        const message = await getLocalizedErrorMessage("NO_REVIEWS", language);
         emitEvent("error", {
           code: "NO_REVIEWS",
-          message: "This product doesn't have enough reviews yet. Try another popular phone.",
+          message,
           suggestions,
         });
         emitEvent("done", { cached: false, remaining: rate.remaining, sourceCount: normalizedSources.length });
@@ -156,9 +163,10 @@ export async function POST(request: NextRequest) {
 
       if (!hasEnoughUserReviewEvidence(reviewEvidence, strictEvidencePolicy)) {
         const suggestions = await getNoReviewSuggestions();
+        const message = await getLocalizedErrorMessage("INSUFFICIENT_USER_REVIEW_EVIDENCE", language);
         emitEvent("error", {
           code: "INSUFFICIENT_USER_REVIEW_EVIDENCE",
-          message: "Not enough user-review evidence. Try another product.",
+          message,
           suggestions,
           reviewEvidence,
           policy: strictEvidencePolicy,
@@ -194,14 +202,16 @@ export async function POST(request: NextRequest) {
       });
 
       if (!review) {
+        const message = await getLocalizedErrorMessage("SERVICE_UNAVAILABLE", language);
         emitEvent("error", {
           code: "SERVICE_UNAVAILABLE",
-          message: "Unable to analyze reviews right now. Please try again in a moment.",
+          message,
         });
         emitEvent("done", { cached: false, remaining: rate.remaining });
         return;
       }
 
+      let reviewId: number | null = null;
       try {
         const product = await upsertProductBySlug({
           slug: canonicalSlug,
@@ -209,7 +219,7 @@ export async function POST(request: NextRequest) {
           model: extracted.model ?? productLabel,
         });
 
-        await createReview({
+        reviewId = await createReview({
           productId: product.id,
           languageCode: "en-IN",
           verdict: review.verdict,
@@ -225,23 +235,50 @@ export async function POST(request: NextRequest) {
         // Keep response streaming even when persistence fails.
       }
 
+      let localizedReview = review;
+      let audioUrl: string | null = null;
+      let durationSeconds: number | null = null;
+      let audioLanguage = language || "en-IN";
+      try {
+        const localized = await localizeReview({
+          reviewId: reviewId ?? 0,
+          productSlug: canonicalSlug,
+          review,
+          languageCode: language || "en-IN",
+        });
+        localizedReview = localized.review;
+        audioUrl = localized.audioUrl;
+        durationSeconds = localized.durationSeconds;
+        audioLanguage = localized.ttsLanguageCode;
+      } catch {
+        // Keep streaming response even if localization pipeline fails.
+      }
+
       emitEvent("review", {
         product: {
           slug: canonicalSlug,
           brand: extracted.brand ?? "Unknown",
           model: extracted.model ?? productLabel,
         },
-        verdict: review.verdict,
-        confidenceScore: review.confidenceScore,
-        pros: review.pros,
-        cons: review.cons,
-        bestFor: review.bestFor,
-        summary: review.summary,
-        tldr: review.tldr,
-        sources: review.sources,
-        language,
+        verdict: localizedReview.verdict,
+        confidenceScore: localizedReview.confidenceScore,
+        pros: localizedReview.pros,
+        cons: localizedReview.cons,
+        bestFor: localizedReview.bestFor,
+        summary: localizedReview.summary,
+        tldr: localizedReview.tldr,
+        sources: localizedReview.sources,
+        language: language || "en-IN",
         reviewEvidence,
       });
+
+      if (audioUrl) {
+        emitEvent("audio", {
+          audioUrl,
+          durationSeconds,
+          language: audioLanguage,
+        });
+      }
 
       emitEvent("done", {
         cached: false,
@@ -251,7 +288,8 @@ export async function POST(request: NextRequest) {
     };
 
     if (payload.kind === "text") {
-      await handleTranscript(payload.text, "en-IN");
+      const textLanguage = await detectQueryLanguageCode(payload.text);
+      await handleTranscript(payload.text, textLanguage);
       return;
     }
 
@@ -259,9 +297,10 @@ export async function POST(request: NextRequest) {
       const stt = await transcribeAudio(payload.audio);
       await handleTranscript(stt.transcript, stt.languageCode);
     } catch (error) {
+      const message = await getLocalizedErrorMessage("STT_FAILED", "en-IN");
       emitEvent("error", {
         code: "STT_FAILED",
-        message: error instanceof Error ? error.message : "Failed to transcribe audio",
+        message: message || (error instanceof Error ? error.message : "Failed to transcribe audio"),
       });
       emitEvent("done", { cached: false, remaining: rate.remaining });
     }

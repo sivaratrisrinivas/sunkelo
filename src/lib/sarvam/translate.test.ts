@@ -8,7 +8,7 @@ vi.mock("./client", () => ({
   }),
 }));
 
-import { splitIntoTranslationChunks, translateLong, translateText } from "./translate";
+import { detectSourceLanguageCode, splitIntoTranslationChunks, translateLong, translateText } from "./translate";
 
 describe("translateText", () => {
   beforeEach(() => {
@@ -56,5 +56,21 @@ describe("translateLong", () => {
       targetLanguageCode: "en-IN",
     });
     expect(translated).toBe("part-1 part-2 part-3");
+  });
+});
+
+describe("detectSourceLanguageCode", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("extracts detected source language from translate API", async () => {
+    mockRequest.mockResolvedValueOnce({
+      translated_text: "hello",
+      source_language_code: "as-IN",
+    });
+
+    const detected = await detectSourceLanguageCode("নমস্কাৰ");
+    expect(detected).toBe("as-IN");
   });
 });

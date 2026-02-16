@@ -45,7 +45,7 @@ export async function transcribeAudio(buffer: Buffer): Promise<STTResult> {
 
   return {
     transcript: payload.transcript.trim(),
-    languageCode: payload.language_code,
-    languageProbability: payload.language_probability,
+    languageCode: payload.language_code ?? "en-IN",
+    languageProbability: payload.language_probability ?? 0,
   };
 }

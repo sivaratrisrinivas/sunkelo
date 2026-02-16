@@ -6,17 +6,26 @@ const notoSans = Noto_Sans({
   variable: "--font-noto-sans",
   subsets: ["latin", "devanagari"],
   display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "SunkeLo",
-  description: "Ask about any phone and get a spoken verdict in your language.",
+  title: "SunkeLo — Voice-First Product Research",
+  description:
+    "Ask about any product in your language. Get a spoken verdict from aggregated reviews.",
+  keywords: ["product reviews", "voice search", "Indian languages", "product research"],
+  authors: [{ name: "SunkeLo" }],
+  openGraph: {
+    title: "SunkeLo — Voice-First Product Research",
+    description: "Ask about any product in your language. Get a spoken verdict.",
+    type: "website",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#09090b",
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({
@@ -25,8 +34,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${notoSans.variable} antialiased`}>{children}</body>
+    <html lang="en" className={notoSans.variable}>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

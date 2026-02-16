@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SUPPORTED_LANGUAGES } from "../utils/languages";
 
 export const sttRequestSchema = z.object({
   model: z.literal("saaras:v3"),
@@ -7,8 +8,8 @@ export const sttRequestSchema = z.object({
 
 export const sttResponseSchema = z.object({
   transcript: z.string().min(1),
-  language_code: z.string().min(1),
-  language_probability: z.number().min(0).max(1),
+  language_code: z.string().min(1).nullable(),
+  language_probability: z.number().min(0).max(1).nullable(),
 });
 
 export type STTResponse = z.infer<typeof sttResponseSchema>;
@@ -49,8 +50,8 @@ export const translationRequestSchema = z.object({
   input: z.string().min(1),
   source_language_code: z.string().min(1),
   target_language_code: z.string().min(1),
-  model: z.literal("mayura:v1"),
-  mode: z.literal("formal"),
+  model: z.union([z.literal("mayura:v1"), z.literal("sarvam-translate:v1")]),
+  mode: z.enum(["formal", "modern-colloquial", "classic-colloquial", "code-mixed"]).optional(),
 });
 
 export const translationResponseSchema = z
@@ -58,6 +59,7 @@ export const translationResponseSchema = z
     translated_text: z.string().min(1).optional(),
     translation: z.string().min(1).optional(),
     output: z.string().min(1).optional(),
+    source_language_code: z.string().min(1).optional(),
   })
   .refine(
     (value) =>
@@ -71,3 +73,18 @@ export const translationResponseSchema = z
 
 export type TranslationRequest = z.infer<typeof translationRequestSchema>;
 export type TranslationResponse = z.infer<typeof translationResponseSchema>;
+
+export const ttsRequestSchema = z.object({
+  text: z.string().min(1).max(2500),
+  target_language_code: z.enum(SUPPORTED_LANGUAGES),
+  speaker: z.string().min(1),
+  model: z.literal("bulbul:v3"),
+});
+
+export const ttsResponseSchema = z.object({
+  request_id: z.string().optional(),
+  audios: z.array(z.string().min(1)).min(1),
+});
+
+export type TTSRequest = z.infer<typeof ttsRequestSchema>;
+export type TTSResponse = z.infer<typeof ttsResponseSchema>;

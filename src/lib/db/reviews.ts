@@ -28,6 +28,16 @@ type ReviewRow = {
   created_at: string;
 };
 
+type ReviewTranslationRow = {
+  id: string;
+  review_id: string;
+  language_code: string;
+  summary: string;
+  tldr: string;
+  audio_url: string | null;
+  created_at: string;
+};
+
 export async function createReview(input: CreateReviewInput): Promise<number> {
   const sql = getDbClient();
   const rows = (await sql`
@@ -81,4 +91,43 @@ export async function getWithTranslations(productId: number) {
     WHERE r.product_id = ${productId}
     ORDER BY r.created_at DESC, rt.language_code ASC
   `;
+}
+
+export async function upsertReviewTranslation(input: {
+  reviewId: number;
+  languageCode: string;
+  summary: string;
+  tldr: string;
+  audioUrl?: string | null;
+}): Promise<{
+  id: number;
+  reviewId: number;
+  languageCode: string;
+  summary: string;
+  tldr: string;
+  audioUrl: string | null;
+  createdAt: Date;
+}> {
+  const sql = getDbClient();
+  const rows = (await sql`
+    INSERT INTO review_translations (review_id, language_code, summary, tldr, audio_url)
+    VALUES (${input.reviewId}, ${input.languageCode}, ${input.summary}, ${input.tldr}, ${input.audioUrl ?? null})
+    ON CONFLICT (review_id, language_code)
+    DO UPDATE SET
+      summary = EXCLUDED.summary,
+      tldr = EXCLUDED.tldr,
+      audio_url = EXCLUDED.audio_url
+    RETURNING id, review_id, language_code, summary, tldr, audio_url, created_at
+  `) as ReviewTranslationRow[];
+
+  const row = rows[0];
+  return {
+    id: Number(row.id),
+    reviewId: Number(row.review_id),
+    languageCode: row.language_code,
+    summary: row.summary,
+    tldr: row.tldr,
+    audioUrl: row.audio_url,
+    createdAt: new Date(row.created_at),
+  };
 }

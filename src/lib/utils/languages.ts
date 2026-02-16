@@ -29,9 +29,9 @@ const META: Record<SupportedLanguage, { displayName: string; script: string }> =
 };
 
 export function getDisplayName(languageCode: string): string {
-  return META[languageCode as SupportedLanguage]?.displayName ?? "Unknown";
+  return META[languageCode as SupportedLanguage]?.displayName ?? languageCode;
 }
 
 export function getScript(languageCode: string): string {
-  return META[languageCode as SupportedLanguage]?.script ?? "Unknown";
+  return META[languageCode as SupportedLanguage]?.script ?? languageCode;
 }

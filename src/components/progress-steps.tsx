@@ -1,60 +1,98 @@
-type ProgressStepKey = "listening" | "understood" | "searching" | "analyzing" | "done";
+"use client";
+
+import { useMemo } from "react";
+
+type ProgressStepKey =
+  | "listening"
+  | "understood"
+  | "searching"
+  | "analyzing"
+  | "done"
+  | "idle"
+  | "error";
 
 type ProgressStepsProps = {
-  currentStep: ProgressStepKey | "idle" | "error";
+  currentStep: ProgressStepKey;
   understoodProduct?: string | null;
 };
 
-type StepDef = {
-  key: ProgressStepKey;
-  label: string;
-};
-
-const STEPS: StepDef[] = [
+const STEPS = [
   { key: "listening", label: "Listening" },
-  { key: "understood", label: "Understood" },
+  { key: "understood", label: "Processing" },
   { key: "searching", label: "Searching" },
   { key: "analyzing", label: "Analyzing" },
-  { key: "done", label: "Done" },
-];
+] as const;
 
-const stepOrder = STEPS.reduce<Record<ProgressStepKey, number>>((acc, step, index) => {
-  acc[step.key] = index;
-  return acc;
-}, {} as Record<ProgressStepKey, number>);
-
-export function ProgressSteps({ currentStep, understoodProduct }: ProgressStepsProps) {
-  if (currentStep === "idle") {
-    return null;
+function computeActiveStepIndex(step: ProgressStepKey): number {
+  if (step === "idle" || step === "error") {
+    return -1;
   }
 
-  return (
-    <ol aria-label="Query progress" className="w-full space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
-      {STEPS.map((step) => {
-        const active = currentStep !== "error" && currentStep === step.key;
-        const completed =
-          currentStep !== "error" &&
-          stepOrder[currentStep as ProgressStepKey] >= stepOrder[step.key];
-        const bullet = completed ? "✓" : active ? "●" : "○";
-        const label =
-          step.key === "understood" && understoodProduct
-            ? `${step.label}: ${understoodProduct}`
-            : step.label;
+  if (step === "done") {
+    return STEPS.length;
+  }
 
-        return (
-          <li
-            key={step.key}
-            className={`flex items-center gap-3 text-sm ${
-              completed ? "text-green-300" : active ? "text-zinc-100" : "text-zinc-400"
-            }`}
-          >
-            <span className={active && !completed ? "animate-pulse" : ""} aria-hidden>
-              {bullet}
-            </span>
-            <span>{label}</span>
-          </li>
-        );
-      })}
-    </ol>
+  const index = STEPS.findIndex((s) => s.key === step);
+  return index;
+}
+
+export function ProgressSteps({ currentStep, understoodProduct }: ProgressStepsProps) {
+  const activeStepIndex = useMemo(() => computeActiveStepIndex(currentStep), [currentStep]);
+
+  if (activeStepIndex === -1) return null;
+
+  const progressPercent = Math.min(100, Math.max(0, ((activeStepIndex + 1) / STEPS.length) * 100));
+
+  return (
+    <div className="w-full space-y-5 animate-fade-up">
+      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-rose-400 to-rose-500 transition-all duration-700 ease-out"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+
+      <div className="flex justify-between px-1">
+        {STEPS.map((step, index) => {
+          const isActive = index === activeStepIndex;
+          const isCompleted = index < activeStepIndex;
+
+          return (
+            <div
+              key={step.key}
+              className={`flex flex-col items-center gap-2.5 transition-all duration-500 ${
+                isActive ? "scale-105" : ""
+              }`}
+            >
+              <div
+                className={`h-2.5 w-2.5 rounded-full transition-all duration-500 ${
+                  isActive
+                    ? "bg-rose-500 shadow-lg shadow-rose-500/40"
+                    : isCompleted
+                      ? "bg-rose-300"
+                      : "bg-gray-200"
+                }`}
+              />
+              <span
+                className={`text-[10px] font-medium transition-all duration-300 ${
+                  isActive ? "text-rose-500" : isCompleted ? "text-gray-400" : "text-gray-300"
+                }`}
+              >
+                {step.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {understoodProduct && (
+        <div className="text-center animate-fade-up">
+          <p className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-xs font-medium text-gray-600 shadow-sm">
+            <span className="text-gray-400">Identified:</span>
+            <span className="text-gray-800">{understoodProduct}</span>
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

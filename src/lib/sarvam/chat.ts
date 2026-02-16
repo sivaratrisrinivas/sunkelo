@@ -29,6 +29,12 @@ export async function createChatCompletion({
     messages,
   });
   const client = getSarvamClient();
+  const payloadJson = JSON.stringify(payload);
+  const payloadBytes = Buffer.byteLength(payloadJson, "utf8");
+  const messageCharStats = messages.map((message) => ({
+    role: message.role,
+    chars: message.content.length,
+  }));
 
   const response = await fetch(`${client.baseUrl}/v1/chat/completions`, {
     method: "POST",
@@ -36,7 +42,7 @@ export async function createChatCompletion({
       Authorization: `Bearer ${client.apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: payloadJson,
   });
 
   if (response.status === 429) {
@@ -46,7 +52,21 @@ export async function createChatCompletion({
     throw new SarvamError("Sarvam service unavailable", response.status);
   }
   if (!response.ok) {
-    throw new SarvamError(`Sarvam chat request failed with ${response.status}`, response.status);
+    const rawErrorBody = await response.text().catch(() => "");
+    const safeErrorBody = rawErrorBody.slice(0, 1000);
+    console.error("[sarvam.chat] completion request failed", {
+      status: response.status,
+      model,
+      temperature,
+      payloadBytes,
+      messageCount: messages.length,
+      messageCharStats,
+      responseBodyPreview: safeErrorBody,
+    });
+    throw new SarvamError(
+      `Sarvam chat request failed with ${response.status}${safeErrorBody ? `: ${safeErrorBody}` : ""}`,
+      response.status,
+    );
   }
 
   const parsed = chatCompletionResponseSchema.parse(await response.json());

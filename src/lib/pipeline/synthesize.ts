@@ -92,17 +92,88 @@ Rules:
 - Provide at least 1 pro, 1 con, and 1 source.
 `.trim();
 
-function buildSourceBlock(sources: NormalizedReviewSource[]): string {
+const SOURCE_MIN_CHARS_PER_ITEM = 120;
+const SOURCE_MAX_CHARS_PER_ITEM = 900;
+const SOURCE_MAX_TOTAL_CONTENT_CHARS = 8_000;
+const TARGET_MAX_USER_PROMPT_CHARS = 12_000;
+
+function normalizePromptContent(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+type PromptSource = {
+  title: string;
+  url: string;
+  type: "blog" | "ecommerce" | "youtube";
+  content: string;
+  originalChars: number;
+};
+
+function compactSourcesForPrompt(sources: NormalizedReviewSource[]): {
+  promptSources: PromptSource[];
+  totalOriginalChars: number;
+  totalCompactedChars: number;
+} {
+  const normalized = sources.map((source) => {
+    const cleaned = normalizePromptContent(source.content);
+    return {
+      title: source.title,
+      url: source.url,
+      type: source.type,
+      content: cleaned,
+      originalChars: cleaned.length,
+    };
+  });
+
+  const totalOriginalChars = normalized.reduce((sum, source) => sum + source.originalChars, 0);
+  let remainingBudget = SOURCE_MAX_TOTAL_CONTENT_CHARS;
+
+  // First pass: reserve a small floor for each source to preserve evidence diversity.
+  const floorAssigned = normalized.map((source) => {
+    const floor = Math.min(source.originalChars, SOURCE_MIN_CHARS_PER_ITEM, remainingBudget);
+    remainingBudget -= floor;
+    return floor;
+  });
+
+  // Second pass: distribute remaining budget in-order up to per-source max.
+  const finalAssigned = normalized.map((source, index) => {
+    const floor = floorAssigned[index];
+    const hardCap = Math.min(source.originalChars, SOURCE_MAX_CHARS_PER_ITEM);
+    const additionalRoom = Math.max(0, hardCap - floor);
+    const additional = Math.min(additionalRoom, remainingBudget);
+    remainingBudget -= additional;
+    return floor + additional;
+  });
+
+  const promptSources: PromptSource[] = normalized.map((source, index) => {
+    const assigned = finalAssigned[index];
+    const clipped = source.content.slice(0, assigned).trim();
+    return {
+      title: source.title,
+      url: source.url,
+      type: source.type,
+      content: clipped,
+      originalChars: source.originalChars,
+    };
+  });
+
+  const totalCompactedChars = promptSources.reduce((sum, source) => sum + source.content.length, 0);
+  return { promptSources, totalOriginalChars, totalCompactedChars };
+}
+
+function buildSourceBlock(sources: PromptSource[]): string {
   return sources
     .map((source, index) => {
       const contextTag = source.type === "ecommerce" ? "USER_REVIEWS" : "EXPERT_OR_CONTENT";
+      const wasTrimmed = source.content.length < source.originalChars;
+      const content = wasTrimmed ? `${source.content} …[truncated]` : source.content;
       return [
         `Source ${index + 1}:`,
         `- Context: ${contextTag}`,
         `- Title: ${source.title}`,
         `- URL: ${source.url}`,
         `- Type: ${source.type}`,
-        `- Content: ${source.content}`,
+        `- Content: ${content}`,
       ].join("\n");
     })
     .join("\n\n");
@@ -307,12 +378,47 @@ export async function synthesizeReview(params: {
   productName: string;
   sources: NormalizedReviewSource[];
 }): Promise<SynthesizedReview> {
+  const sourceSizeStats = params.sources.map((source, index) => ({
+    index: index + 1,
+    type: source.type,
+    titleChars: source.title.length,
+    contentChars: source.content.length,
+    urlChars: source.url.length,
+  }));
+  const totalSourceContentChars = params.sources.reduce((sum, source) => sum + source.content.length, 0);
+  console.info("[synthesize] request stats", {
+    traceId: params.traceId,
+    productName: params.productName,
+    sourceCount: params.sources.length,
+    totalSourceContentChars,
+    sourceSizeStats,
+  });
+
+  const compacted = compactSourcesForPrompt(params.sources);
   const userPrompt = [
     `Product: ${params.productName}`,
     "",
     "Use the following sources:",
-    buildSourceBlock(params.sources),
+    buildSourceBlock(compacted.promptSources),
   ].join("\n");
+  console.info("[synthesize] prompt stats", {
+    traceId: params.traceId,
+    productName: params.productName,
+    userPromptChars: userPrompt.length,
+    targetMaxUserPromptChars: TARGET_MAX_USER_PROMPT_CHARS,
+    compactedSourceChars: compacted.totalCompactedChars,
+    originalSourceChars: compacted.totalOriginalChars,
+    sourceCharReduction: compacted.totalOriginalChars - compacted.totalCompactedChars,
+  });
+
+  if (userPrompt.length > TARGET_MAX_USER_PROMPT_CHARS) {
+    console.warn("[synthesize] prompt still above target after compaction", {
+      traceId: params.traceId,
+      productName: params.productName,
+      userPromptChars: userPrompt.length,
+      targetMaxUserPromptChars: TARGET_MAX_USER_PROMPT_CHARS,
+    });
+  }
 
   let content: string;
   try {

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   chatCompletionResponseSchema,
   sttResponseSchema,
+  ttsRequestSchema,
+  ttsResponseSchema,
   translationRequestSchema,
   translationResponseSchema,
 } from "./types";
@@ -88,11 +90,40 @@ describe("translation schemas", () => {
     expect(response.translated_text).toBe("This phone is very good.");
   });
 
+  it("accepts sarvam-translate model request", () => {
+    const request = translationRequestSchema.parse({
+      input: "ନମସ୍କାର",
+      source_language_code: "od-IN",
+      target_language_code: "en-IN",
+      model: "sarvam-translate:v1",
+    });
+
+    expect(request.model).toBe("sarvam-translate:v1");
+  });
+
   it("fails when translated text is empty", () => {
     expect(() =>
       translationResponseSchema.parse({
         translated_text: "",
       }),
     ).toThrow();
+  });
+});
+
+describe("tts schemas", () => {
+  it("parses Bulbul request/response shape", () => {
+    const request = ttsRequestSchema.parse({
+      text: "Welcome",
+      target_language_code: "en-IN",
+      speaker: "shubh",
+      model: "bulbul:v3",
+    });
+    const response = ttsResponseSchema.parse({
+      request_id: "req-1",
+      audios: ["UklGRg..."],
+    });
+
+    expect(request.model).toBe("bulbul:v3");
+    expect(response.audios).toHaveLength(1);
   });
 });

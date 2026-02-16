@@ -8,6 +8,9 @@ const mockResolveCanonicalSlug = vi.fn();
 const mockScrapeAllSources = vi.fn();
 const mockNormalizeSourcesToEnglish = vi.fn();
 const mockSynthesizeReview = vi.fn();
+const mockLocalizeReview = vi.fn();
+const mockGetLocalizedErrorMessage = vi.fn();
+const mockDetectQueryLanguageCode = vi.fn();
 const mockUpsertProductBySlug = vi.fn();
 const mockCreateReview = vi.fn();
 const mockListTrending = vi.fn();
@@ -35,6 +38,18 @@ vi.mock("@/lib/pipeline/normalize-sources", () => ({
 
 vi.mock("@/lib/pipeline/synthesize", () => ({
   synthesizeReview: (...args: unknown[]) => mockSynthesizeReview(...args),
+}));
+
+vi.mock("@/lib/pipeline/localize", () => ({
+  localizeReview: (...args: unknown[]) => mockLocalizeReview(...args),
+}));
+
+vi.mock("@/lib/pipeline/localized-errors", () => ({
+  getLocalizedErrorMessage: (...args: unknown[]) => mockGetLocalizedErrorMessage(...args),
+}));
+
+vi.mock("@/lib/pipeline/query-language", () => ({
+  detectQueryLanguageCode: (...args: unknown[]) => mockDetectQueryLanguageCode(...args),
 }));
 
 vi.mock("@/lib/db/products", () => ({
@@ -138,6 +153,27 @@ describe("POST /api/query sprint 3 flow", () => {
     });
     mockUpsertProductBySlug.mockResolvedValue({ id: 42 });
     mockCreateReview.mockResolvedValue(1001);
+    mockDetectQueryLanguageCode.mockResolvedValue("en-IN");
+    mockLocalizeReview.mockResolvedValue({
+      review: {
+        verdict: "buy",
+        pros: ["Good battery"],
+        cons: ["Average speaker"],
+        bestFor: "Budget buyers",
+        summary: "Localized summary",
+        tldr: "Localized TLDR text",
+        confidenceScore: 0.78,
+        sources: [
+          { title: "R1", url: "https://example.com/1", type: "blog" },
+          { title: "R2", url: "https://example.com/2", type: "youtube" },
+        ],
+      },
+      languageCode: "en-IN",
+      ttsLanguageCode: "en-IN",
+      audioUrl: "https://blob.example/audio.wav",
+      durationSeconds: 12.5,
+    });
+    mockGetLocalizedErrorMessage.mockImplementation(async (code: string) => `localized:${code}`);
     mockListTrending.mockResolvedValue([
       { brand: "Redmi", model: "Note 15" },
       { brand: "Samsung", model: "Galaxy S24" },
@@ -149,6 +185,7 @@ describe("POST /api/query sprint 3 flow", () => {
   });
 
   it("emits understood and searching statuses for product intent", async () => {
+    mockDetectQueryLanguageCode.mockResolvedValueOnce("te-IN");
     mockExtractIntentAndEntity.mockResolvedValueOnce({
       intent: "product_review",
       brand: "Redmi",
@@ -165,7 +202,7 @@ describe("POST /api/query sprint 3 flow", () => {
         "content-type": "application/json",
         "x-forwarded-for": "1.1.1.1",
       },
-      body: JSON.stringify({ text: "Redmi Note 15 kaisa hai?" }),
+      body: JSON.stringify({ text: "రెడ్‌మి నోట్ 15 ఎలా ఉంది?" }),
     }) as NextRequest;
 
     const response = await POST(request);
@@ -178,11 +215,12 @@ describe("POST /api/query sprint 3 flow", () => {
       "status",
       "status",
       "review",
+      "audio",
       "done",
     ]);
     expect(events[1].data).toMatchObject({
       status: "understood",
-      context: { transcript: "Redmi Note 15 kaisa hai?", language: "en-IN" },
+      context: { transcript: "రెడ్‌మి నోట్ 15 ఎలా ఉంది?", language: "te-IN" },
     });
     expect(events[2].data).toMatchObject({
       status: "searching",
@@ -196,12 +234,19 @@ describe("POST /api/query sprint 3 flow", () => {
       verdict: "buy",
       confidenceScore: 0.78,
       bestFor: "Budget buyers",
+      summary: "Localized summary",
+    });
+    expect(events[5].data).toMatchObject({
+      audioUrl: "https://blob.example/audio.wav",
+      durationSeconds: 12.5,
     });
     expect(mockUpsertProductBySlug).toHaveBeenCalledOnce();
     expect(mockCreateReview).toHaveBeenCalledOnce();
+    expect(mockLocalizeReview).toHaveBeenCalledOnce();
   });
 
   it("emits NOT_A_PRODUCT error for unsupported intent", async () => {
+    mockDetectQueryLanguageCode.mockResolvedValueOnce("en-IN");
     mockExtractIntentAndEntity.mockResolvedValueOnce({
       intent: "unsupported",
       brand: null,
@@ -227,10 +272,12 @@ describe("POST /api/query sprint 3 flow", () => {
     expect(events.map((event) => event.type)).toEqual(["status", "status", "error", "done"]);
     expect(events[2].data).toMatchObject({
       code: "NOT_A_PRODUCT",
+      message: "localized:NOT_A_PRODUCT",
     });
   });
 
   it("emits NO_REVIEWS when scraped sources are empty", async () => {
+    mockDetectQueryLanguageCode.mockResolvedValueOnce("en-IN");
     mockExtractIntentAndEntity.mockResolvedValueOnce({
       intent: "product_review",
       brand: "Redmi",
@@ -258,10 +305,12 @@ describe("POST /api/query sprint 3 flow", () => {
 
     expect(events.map((event) => event.type)).toEqual(["status", "status", "status", "error", "done"]);
     expect(events[3].data).toMatchObject({ code: "NO_REVIEWS" });
+    expect(events[3].data.message).toBe("localized:NO_REVIEWS");
     expect(events[3].data.suggestions).toEqual(["Redmi Note 15", "Samsung Galaxy S24"]);
   });
 
   it("blocks synthesis in strict evidence mode when user-review evidence is low", async () => {
+    mockDetectQueryLanguageCode.mockResolvedValueOnce("en-IN");
     vi.stubEnv("STRICT_REVIEW_EVIDENCE_MODE", "true");
     vi.stubEnv("STRICT_REVIEW_MIN_ECOMMERCE_SOURCES", "2");
     vi.stubEnv("STRICT_REVIEW_MIN_SIGNAL_HITS", "2");
@@ -310,7 +359,41 @@ describe("POST /api/query sprint 3 flow", () => {
     expect(events.map((event) => event.type)).toEqual(["status", "status", "status", "error", "done"]);
     expect(events[3].data).toMatchObject({
       code: "INSUFFICIENT_USER_REVIEW_EVIDENCE",
+      message: "localized:INSUFFICIENT_USER_REVIEW_EVIDENCE",
     });
     expect(mockSynthesizeReview).not.toHaveBeenCalled();
+  });
+
+  it("skips translation for en-IN path while still emitting audio", async () => {
+    mockDetectQueryLanguageCode.mockResolvedValueOnce("en-IN");
+    mockExtractIntentAndEntity.mockResolvedValueOnce({
+      intent: "product_review",
+      brand: "Apple",
+      model: "iPhone 16",
+      variant: null,
+      slug: "iphone-16",
+      productName: "iPhone 16",
+    });
+    mockResolveCanonicalSlug.mockResolvedValueOnce("iphone-16");
+
+    const request = new Request("http://localhost/api/query", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": "8.8.8.8",
+      },
+      body: JSON.stringify({ text: "iPhone 16 review" }),
+    }) as NextRequest;
+
+    const response = await POST(request);
+    const body = await response.text();
+    const events = parseSSE(body);
+
+    expect(events.some((event) => event.type === "audio")).toBe(true);
+    expect(mockLocalizeReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        languageCode: "en-IN",
+      }),
+    );
   });
 });
