@@ -4,7 +4,19 @@
 
 ---
 
+## Implementation Status
+
+| Sprint | Status | Notes |
+|---|---|---|
+| Sprint 1 | ✅ Done | Foundation, tooling, DB/cache layer, shared types, landing shell |
+| Sprint 2 | ✅ Done | Voice capture, STT wrapper, SSE flow, API query route, language badge |
+| Sprint 3-10 | ⏳ Pending | Planned and tracked below |
+
+---
+
 ## Sprint 1: Project Foundation & Data Layer
+
+**Status:** ✅ Done
 
 **Sprint Goal:** Running Next.js app with DB + Redis connected, schema deployed, utility functions tested, basic landing page shell.
 
@@ -32,6 +44,8 @@
 ---
 
 ## Sprint 2: Voice Capture, STT & SSE Foundation
+
+**Status:** ✅ Done
 
 **Sprint Goal:** User taps mic (or types), records voice, audio uploaded to API, transcript + detected language streamed back via SSE.
 

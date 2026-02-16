@@ -8,6 +8,12 @@
 
 India's next 500M internet users are voice-first. Before buying a phone, they watch YouTube reviews -- mostly in Hindi/English. Someone in Odisha or Assam is out of luck. SunkeLo solves this by letting users ask about any phone via voice in any supported Indian language, scraping/aggregating reviews from blogs, e-commerce, and YouTube, synthesizing a balanced opinion via Sarvam-M, and delivering the summary as audio + text in the user's language.
 
+### Implementation Status (Current)
+
+- ✅ Sprint 1 completed: project foundation, tooling, DB/cache clients, schema, shared types, utility layer, landing shell
+- ✅ Sprint 2 completed: voice capture + text fallback, STT integration layer, SSE query route and client hook, language badge display
+- ⏳ Sprint 3+ remain in planned state and are tracked in `docs/sprints.md`
+
 ### Core Objectives
 
 - Deliver synthesized, multi-source product reviews via voice in 11 Indian languages
