@@ -78,28 +78,15 @@ Completed:
 - **Sprint 3:** intent/entity extraction, alias resolution, progress steps UI, non-product rejection UI, and dedicated Sprint 3 test coverage
 - **Sprint 4:** Firecrawl client + source scraping/parsing, Mayura translation wrapper/chunking, source normalization pipeline, `/api/sources` endpoint, and Sprint 4 test suite
 - **Sprint 5:** review synthesis pipeline, `ReviewCard` + loading skeleton, review persistence, `NO_REVIEWS` UX, and strict user-review evidence mode
-- **Sprint 6:** translation + TTS + audio playback pipeline, `AudioPlayer` component, localized error messages
-- **Sprint 7:** caching layer + performance optimizations
 
 Planned next:
 
-- Caching/performance tuning
+- Translation + TTS
+- Caching/performance
 - Trending, SEO pages, analytics, production hardening
-- UI/UX refinements
 
 Full plan lives in `docs/sprints.md`.  
 Detailed product spec lives in `docs/spec.md`.
-
----
-
-## Design
-
-The UI follows a warm, inviting aesthetic inspired by premium consumer products:
-
-- Light background with soft rose/coral accents
-- Rounded components with subtle shadows
-- Delightful micro-interactions and animations
-- Tactile, trustworthy feel
 
 ---
 
@@ -111,7 +98,6 @@ The UI follows a warm, inviting aesthetic inspired by premium consumer products:
 - `Sarvam AI` (`Saaras`, `Sarvam-M`, `Mayura`, `Bulbul`)
 - `Firecrawl`
 - `Vitest` + `Playwright`
-- `Tailwind CSS v4`
 
 ---
 

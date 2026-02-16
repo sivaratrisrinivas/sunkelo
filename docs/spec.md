@@ -15,9 +15,7 @@ India's next 500M internet users are voice-first. Before buying products, they w
 - ✅ Sprint 3 completed: Sarvam chat/entity extraction, alias resolution, searching-status SSE, ProgressSteps UI, non-product rejection UI + tests
 - ✅ Sprint 4 completed: Firecrawl client/scraper/parsers, Mayura translation wrapper + chunking, source normalization to English, `/api/sources` endpoint, optional Firecrawl contract smoke test
 - ✅ Sprint 5 completed: review synthesis pipeline, structured ReviewCard UI, DB persistence, NO_REVIEWS flow, strict user-review evidence gate
-- ✅ Sprint 6 completed: TTS wrapper (Bulbul v3), Vercel Blob storage, localization pipeline (translate + TTS), useAudioPlayer hook, AudioPlayer component, localized error messages
-- ✅ Sprint 7 completed: review cache, localized cache, alias cache, retry with exponential backoff, async query logging, latency optimizations
-- ⏳ Sprint 8+ remain in planned state and are tracked in `docs/sprints.md`
+- ⏳ Sprint 6+ remain in planned state and are tracked in `docs/sprints.md`
 
 ### Core Objectives
 
@@ -32,13 +30,13 @@ India's next 500M internet users are voice-first. Before buying products, they w
 
 ### Success Metrics
 
-| Metric                 | Target                       |
-| ---------------------- | ---------------------------- |
+| Metric | Target |
+|---|---|
 | Query-to-first-content | < 8s (text starts streaming) |
-| Query-to-audio-ready   | < 30s                        |
-| Cache hit rate         | > 60% after week 1           |
-| Daily active queries   | 500+ within month 1          |
-| Supported languages    | 11 (10 Indic + English)      |
+| Query-to-audio-ready | < 30s |
+| Cache hit rate | > 60% after week 1 |
+| Daily active queries | 500+ within month 1 |
+| Supported languages | 11 (10 Indic + English) |
 
 ---
 
@@ -46,17 +44,17 @@ India's next 500M internet users are voice-first. Before buying products, they w
 
 ### 2.1 Tech Stack
 
-| Layer                | Technology                            | Rationale                                                                  |
-| -------------------- | ------------------------------------- | -------------------------------------------------------------------------- |
-| **Frontend**         | Next.js 15 (App Router)               | SSR for SEO on cached review pages, React Server Components, Vercel-native |
-| **Runtime**          | Node.js / TypeScript                  | Single-language monorepo, Sarvam JS SDK available                          |
-| **Database**         | Neon (Serverless Postgres)            | Serverless-friendly, scales to zero, branching for dev                     |
-| **Cache/Rate-limit** | Upstash Redis                         | Serverless Redis, HTTP-based, Vercel-native integration                    |
-| **AI/ML**            | Sarvam AI (STT, TTS, Translate, Chat) | Best-in-class Indic language support, free tier this month                 |
-| **Scraping**         | Firecrawl                             | Structured web scraping, free tier                                         |
-| **Deployment**       | Vercel                                | Zero-config Next.js hosting, edge functions, analytics                     |
-| **Analytics**        | Vercel Analytics + PostHog (free)     | Performance + product analytics                                            |
-| **Styling**          | Tailwind CSS v4                       | Utility-first, mobile-first responsive design                              |
+| Layer | Technology | Rationale |
+|---|---|---|
+| **Frontend** | Next.js 15 (App Router) | SSR for SEO on cached review pages, React Server Components, Vercel-native |
+| **Runtime** | Node.js / TypeScript | Single-language monorepo, Sarvam JS SDK available |
+| **Database** | Neon (Serverless Postgres) | Serverless-friendly, scales to zero, branching for dev |
+| **Cache/Rate-limit** | Upstash Redis | Serverless Redis, HTTP-based, Vercel-native integration |
+| **AI/ML** | Sarvam AI (STT, TTS, Translate, Chat) | Best-in-class Indic language support, free tier this month |
+| **Scraping** | Firecrawl | Structured web scraping, free tier |
+| **Deployment** | Vercel | Zero-config Next.js hosting, edge functions, analytics |
+| **Analytics** | Vercel Analytics + PostHog (free) | Performance + product analytics |
+| **Styling** | Tailwind CSS v4 | Utility-first, mobile-first responsive design |
 
 ### 2.2 System Context Diagram
 
@@ -139,88 +137,88 @@ graph TB
 
 #### `products` table
 
-| Column            | Type           | Constraints                   | Description                                        |
-| ----------------- | -------------- | ----------------------------- | -------------------------------------------------- |
-| `id`              | `uuid`         | PK, DEFAULT gen_random_uuid() | Product ID                                         |
-| `slug`            | `varchar(255)` | UNIQUE, NOT NULL              | URL-friendly identifier, e.g., "redmi-note-15-pro" |
-| `brand`           | `varchar(100)` | NOT NULL, INDEX               | Brand name normalized                              |
-| `model`           | `varchar(255)` | NOT NULL                      | Model name                                         |
-| `variant`         | `varchar(100)` | NULLABLE                      | Variant (e.g., "128GB", "Pro+")                    |
-| `category`        | `varchar(50)`  | NOT NULL, DEFAULT 'phone'     | Product category                                   |
-| `price_range_min` | `integer`      | NULLABLE                      | Minimum price INR                                  |
-| `price_range_max` | `integer`      | NULLABLE                      | Maximum price INR                                  |
-| `image_url`       | `text`         | NULLABLE                      | Product thumbnail                                  |
-| `is_trending`     | `boolean`      | DEFAULT false                 | Featured on landing page                           |
-| `created_at`      | `timestamptz`  | DEFAULT now()                 | Creation timestamp                                 |
-| `updated_at`      | `timestamptz`  | DEFAULT now()                 | Last update timestamp                              |
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | PK, DEFAULT gen_random_uuid() | Product ID |
+| `slug` | `varchar(255)` | UNIQUE, NOT NULL | URL-friendly identifier, e.g., "redmi-note-15-pro" |
+| `brand` | `varchar(100)` | NOT NULL, INDEX | Brand name normalized |
+| `model` | `varchar(255)` | NOT NULL | Model name |
+| `variant` | `varchar(100)` | NULLABLE | Variant (e.g., "128GB", "Pro+") |
+| `category` | `varchar(50)` | NOT NULL, DEFAULT 'phone' | Product category |
+| `price_range_min` | `integer` | NULLABLE | Minimum price INR |
+| `price_range_max` | `integer` | NULLABLE | Maximum price INR |
+| `image_url` | `text` | NULLABLE | Product thumbnail |
+| `is_trending` | `boolean` | DEFAULT false | Featured on landing page |
+| `created_at` | `timestamptz` | DEFAULT now() | Creation timestamp |
+| `updated_at` | `timestamptz` | DEFAULT now() | Last update timestamp |
 
 #### `reviews` table
 
-| Column             | Type           | Constraints                       | Description                           |
-| ------------------ | -------------- | --------------------------------- | ------------------------------------- |
-| `id`               | `uuid`         | PK, DEFAULT gen_random_uuid()     | Review ID                             |
-| `product_id`       | `uuid`         | FK → products.id, NOT NULL, INDEX | Associated product                    |
-| `verdict`          | `varchar(20)`  | NOT NULL                          | "buy", "skip", "wait"                 |
-| `confidence_score` | `real`         | NOT NULL                          | 0.0–1.0 based on source count/quality |
-| `pros`             | `jsonb`        | NOT NULL                          | Array of pro strings (3-5)            |
-| `cons`             | `jsonb`        | NOT NULL                          | Array of con strings (3-5)            |
-| `best_for`         | `varchar(255)` | NOT NULL                          | One-liner, e.g., "Budget gamers"      |
-| `summary_en`       | `text`         | NOT NULL                          | English base summary                  |
-| `tldr_en`          | `text`         | NOT NULL                          | Short version for TTS (~100 words)    |
-| `source_count`     | `integer`      | NOT NULL                          | Number of sources used                |
-| `sources`          | `jsonb`        | NOT NULL                          | Array of {url, title, type}           |
-| `expires_at`       | `timestamptz`  | NOT NULL, INDEX                   | Cache expiry (created_at + 7 days)    |
-| `created_at`       | `timestamptz`  | DEFAULT now()                     | Creation timestamp                    |
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | PK, DEFAULT gen_random_uuid() | Review ID |
+| `product_id` | `uuid` | FK → products.id, NOT NULL, INDEX | Associated product |
+| `verdict` | `varchar(20)` | NOT NULL | "buy", "skip", "wait" |
+| `confidence_score` | `real` | NOT NULL | 0.0–1.0 based on source count/quality |
+| `pros` | `jsonb` | NOT NULL | Array of pro strings (3-5) |
+| `cons` | `jsonb` | NOT NULL | Array of con strings (3-5) |
+| `best_for` | `varchar(255)` | NOT NULL | One-liner, e.g., "Budget gamers" |
+| `summary_en` | `text` | NOT NULL | English base summary |
+| `tldr_en` | `text` | NOT NULL | Short version for TTS (~100 words) |
+| `source_count` | `integer` | NOT NULL | Number of sources used |
+| `sources` | `jsonb` | NOT NULL | Array of {url, title, type} |
+| `expires_at` | `timestamptz` | NOT NULL, INDEX | Cache expiry (created_at + 7 days) |
+| `created_at` | `timestamptz` | DEFAULT now() | Creation timestamp |
 
 #### `review_translations` table
 
-| Column          | Type          | Constraints                   | Description                              |
-| --------------- | ------------- | ----------------------------- | ---------------------------------------- |
-| `id`            | `uuid`        | PK, DEFAULT gen_random_uuid() | Translation ID                           |
-| `review_id`     | `uuid`        | FK → reviews.id, NOT NULL     | Parent review                            |
-| `language_code` | `varchar(10)` | NOT NULL                      | BCP-47 code, e.g., "od-IN"               |
-| `summary`       | `text`        | NOT NULL                      | Translated summary                       |
-| `tldr`          | `text`        | NOT NULL                      | Translated TL;DR for TTS                 |
-| `audio_url`     | `text`        | NULLABLE                      | Stored TTS audio URL (Vercel Blob or R2) |
-| `created_at`    | `timestamptz` | DEFAULT now()                 | Creation timestamp                       |
-| **UNIQUE**      |               | `(review_id, language_code)`  | One translation per language             |
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | PK, DEFAULT gen_random_uuid() | Translation ID |
+| `review_id` | `uuid` | FK → reviews.id, NOT NULL | Parent review |
+| `language_code` | `varchar(10)` | NOT NULL | BCP-47 code, e.g., "od-IN" |
+| `summary` | `text` | NOT NULL | Translated summary |
+| `tldr` | `text` | NOT NULL | Translated TL;DR for TTS |
+| `audio_url` | `text` | NULLABLE | Stored TTS audio URL (Vercel Blob or R2) |
+| `created_at` | `timestamptz` | DEFAULT now() | Creation timestamp |
+| **UNIQUE** | | `(review_id, language_code)` | One translation per language |
 
 #### `query_logs` table
 
-| Column              | Type           | Constraints                   | Description                       |
-| ------------------- | -------------- | ----------------------------- | --------------------------------- |
-| `id`                | `uuid`         | PK, DEFAULT gen_random_uuid() | Log ID                            |
-| `client_ip_hash`    | `varchar(64)`  | NOT NULL, INDEX               | SHA-256 hashed IP (privacy)       |
-| `transcript`        | `text`         | NOT NULL                      | STT output                        |
-| `detected_language` | `varchar(10)`  | NOT NULL                      | Detected BCP-47 code              |
-| `extracted_product` | `varchar(255)` | NULLABLE                      | Extracted product name            |
-| `product_id`        | `uuid`         | FK → products.id, NULLABLE    | Matched product (if any)          |
-| `intent`            | `varchar(30)`  | NOT NULL                      | "product_review" or "unsupported" |
-| `cache_hit`         | `boolean`      | NOT NULL                      | Whether cache was hit             |
-| `latency_ms`        | `integer`      | NOT NULL                      | Total pipeline latency            |
-| `created_at`        | `timestamptz`  | DEFAULT now(), INDEX          | Query timestamp                   |
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | PK, DEFAULT gen_random_uuid() | Log ID |
+| `client_ip_hash` | `varchar(64)` | NOT NULL, INDEX | SHA-256 hashed IP (privacy) |
+| `transcript` | `text` | NOT NULL | STT output |
+| `detected_language` | `varchar(10)` | NOT NULL | Detected BCP-47 code |
+| `extracted_product` | `varchar(255)` | NULLABLE | Extracted product name |
+| `product_id` | `uuid` | FK → products.id, NULLABLE | Matched product (if any) |
+| `intent` | `varchar(30)` | NOT NULL | "product_review" or "unsupported" |
+| `cache_hit` | `boolean` | NOT NULL | Whether cache was hit |
+| `latency_ms` | `integer` | NOT NULL | Total pipeline latency |
+| `created_at` | `timestamptz` | DEFAULT now(), INDEX | Query timestamp |
 
 ### 3.2 Redis Cache Schema (Upstash)
 
-| Key Pattern                         | Value                               | TTL                           | Purpose                                     |
-| ----------------------------------- | ----------------------------------- | ----------------------------- | ------------------------------------------- |
-| `review:{product_slug}`             | JSON: serialized review object      | 7 days                        | Cached synthesized review                   |
-| `review:{product_slug}:{lang_code}` | JSON: translated review + audio URL | 7 days                        | Cached localized review                     |
-| `ratelimit:{ip_hash}`               | Integer counter                     | 24 hours (reset midnight IST) | Rate limit counter                          |
-| `trending:products`                 | JSON: array of product slugs        | 1 hour                        | Landing page trending list                  |
-| `product:alias:{alias}`             | String: canonical product slug      | 30 days                       | Alias mapping ("note 15" → "redmi-note-15") |
+| Key Pattern | Value | TTL | Purpose |
+|---|---|---|---|
+| `review:{product_slug}` | JSON: serialized review object | 7 days | Cached synthesized review |
+| `review:{product_slug}:{lang_code}` | JSON: translated review + audio URL | 7 days | Cached localized review |
+| `ratelimit:{ip_hash}` | Integer counter | 24 hours (reset midnight IST) | Rate limit counter |
+| `trending:products` | JSON: array of product slugs | 1 hour | Landing page trending list |
+| `product:alias:{alias}` | String: canonical product slug | 30 days | Alias mapping ("note 15" → "redmi-note-15") |
 
 ### 3.3 Data Access Patterns
 
-| Operation                 | Frequency                     | Path                                  |
-| ------------------------- | ----------------------------- | ------------------------------------- |
-| Check rate limit          | Every request                 | Redis GET `ratelimit:{ip_hash}`       |
-| Lookup cached review      | Every query                   | Redis GET `review:{slug}`             |
-| Lookup cached translation | Every query (after cache hit) | Redis GET `review:{slug}:{lang}`      |
-| Write new review          | On cache miss                 | Postgres INSERT + Redis SET           |
-| Log query                 | Every request                 | Postgres INSERT (async, non-blocking) |
-| Fetch trending products   | Landing page load             | Redis GET `trending:products`         |
-| Pre-index products        | Cron (daily)                  | Firecrawl → Postgres + Redis          |
+| Operation | Frequency | Path |
+|---|---|---|
+| Check rate limit | Every request | Redis GET `ratelimit:{ip_hash}` |
+| Lookup cached review | Every query | Redis GET `review:{slug}` |
+| Lookup cached translation | Every query (after cache hit) | Redis GET `review:{slug}:{lang}` |
+| Write new review | On cache miss | Postgres INSERT + Redis SET |
+| Log query | Every request | Postgres INSERT (async, non-blocking) |
+| Fetch trending products | Landing page load | Redis GET `trending:products` |
+| Pre-index products | Cron (daily) | Firecrawl → Postgres + Redis |
 
 ### 3.4 Entity Relationship Diagram
 
@@ -334,15 +332,15 @@ desitone/
 
 ### 4.1 Key Modules and Responsibilities
 
-| Module                     | Responsibility                                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `pipeline/orchestrator.ts` | Coordinates the full STT→Extract→Cache→Scrape→Synthesize→Translate→TTS pipeline. Emits SSE events at each stage.   |
-| `pipeline/entity.ts`       | Prompts Sarvam-M to extract structured product entity from transcript. Normalizes to slug. Handles aliases.        |
-| `pipeline/synthesize.ts`   | Constructs a review synthesis prompt with all scraped sources. Returns structured JSON (verdict, pros, cons, etc). |
-| `pipeline/localize.ts`     | Translates English base review to target language via Mayura. Generates TTS audio via Bulbul v3.                   |
-| `firecrawl/scraper.ts`     | Orchestrates parallel scraping across blog, e-commerce, and YouTube sources. Respects Firecrawl free tier limits.  |
-| `cache/rate-limit.ts`      | Implements sliding-window rate limiting: 5 queries/day per IP hash. Returns remaining quota.                       |
-| `sarvam/client.ts`         | Singleton SarvamAIClient instance with error handling, retries, and timeout config.                                |
+| Module | Responsibility |
+|---|---|
+| `pipeline/orchestrator.ts` | Coordinates the full STT→Extract→Cache→Scrape→Synthesize→Translate→TTS pipeline. Emits SSE events at each stage. |
+| `pipeline/entity.ts` | Prompts Sarvam-M to extract structured product entity from transcript. Normalizes to slug. Handles aliases. |
+| `pipeline/synthesize.ts` | Constructs a review synthesis prompt with all scraped sources. Returns structured JSON (verdict, pros, cons, etc). |
+| `pipeline/localize.ts` | Translates English base review to target language via Mayura. Generates TTS audio via Bulbul v3. |
+| `firecrawl/scraper.ts` | Orchestrates parallel scraping across blog, e-commerce, and YouTube sources. Respects Firecrawl free tier limits. |
+| `cache/rate-limit.ts` | Implements sliding-window rate limiting: 5 queries/day per IP hash. Returns remaining quota. |
+| `sarvam/client.ts` | Singleton SarvamAIClient instance with error handling, retries, and timeout config. |
 
 ---
 
@@ -501,12 +499,12 @@ Takes a product slug/name and returns scraped, parsed, English-normalized review
 
 #### Sarvam AI APIs
 
-| API              | Endpoint                                         | Model       | Auth Header             | Purpose                                                    |
-| ---------------- | ------------------------------------------------ | ----------- | ----------------------- | ---------------------------------------------------------- |
-| Speech-to-Text   | `POST https://api.sarvam.ai/speech-to-text`      | `saaras:v3` | `api-subscription-key`  | Voice → text + lang detect                                 |
-| Chat Completions | `POST https://api.sarvam.ai/v1/chat/completions` | `sarvam-m`  | `Authorization: Bearer` | Entity extraction, intent classification, review synthesis |
-| Translation      | `POST https://api.sarvam.ai/translate`           | `mayura:v1` | `api-subscription-key`  | Cross-language review translation                          |
-| Text-to-Speech   | `POST https://api.sarvam.ai/text-to-speech`      | `bulbul:v3` | `api-subscription-key`  | Review TL;DR → audio                                       |
+| API | Endpoint | Model | Auth Header | Purpose |
+|---|---|---|---|---|
+| Speech-to-Text | `POST https://api.sarvam.ai/speech-to-text` | `saaras:v3` | `api-subscription-key` | Voice → text + lang detect |
+| Chat Completions | `POST https://api.sarvam.ai/v1/chat/completions` | `sarvam-m` | `Authorization: Bearer` | Entity extraction, intent classification, review synthesis |
+| Translation | `POST https://api.sarvam.ai/translate` | `mayura:v1` | `api-subscription-key` | Cross-language review translation |
+| Text-to-Speech | `POST https://api.sarvam.ai/text-to-speech` | `bulbul:v3` | `api-subscription-key` | Review TL;DR → audio |
 
 **Sarvam STT Request Details:**
 
@@ -595,9 +593,9 @@ Response: audio binary (WAV/MP3)
 
 #### Firecrawl API
 
-| Operation          | Method | Purpose                              |
-| ------------------ | ------ | ------------------------------------ |
-| `firecrawl_search` | Search | Find review URLs for a product       |
+| Operation | Method | Purpose |
+|---|---|---|
+| `firecrawl_search` | Search | Find review URLs for a product |
 | `firecrawl_scrape` | Scrape | Extract content from blog/ecom pages |
 
 **Scrape Priority Order:**
@@ -619,19 +617,19 @@ Response: audio binary (WAV/MP3)
 
 #### Supported Languages (Sarvam Coverage)
 
-| Language  | BCP-47 Code | STT | TTS | Translate | Chat |
-| --------- | ----------- | --- | --- | --------- | ---- |
-| English   | `en-IN`     | Yes | Yes | Yes       | Yes  |
-| Hindi     | `hi-IN`     | Yes | Yes | Yes       | Yes  |
-| Bengali   | `bn-IN`     | Yes | Yes | Yes       | Yes  |
-| Tamil     | `ta-IN`     | Yes | Yes | Yes       | Yes  |
-| Telugu    | `te-IN`     | Yes | Yes | Yes       | Yes  |
-| Gujarati  | `gu-IN`     | Yes | Yes | Yes       | Yes  |
-| Kannada   | `kn-IN`     | Yes | Yes | Yes       | Yes  |
-| Malayalam | `ml-IN`     | Yes | Yes | Yes       | Yes  |
-| Marathi   | `mr-IN`     | Yes | Yes | Yes       | Yes  |
-| Punjabi   | `pa-IN`     | Yes | Yes | Yes       | Yes  |
-| Odia      | `od-IN`     | Yes | Yes | Yes       | Yes  |
+| Language | BCP-47 Code | STT | TTS | Translate | Chat |
+|---|---|---|---|---|---|
+| English | `en-IN` | Yes | Yes | Yes | Yes |
+| Hindi | `hi-IN` | Yes | Yes | Yes | Yes |
+| Bengali | `bn-IN` | Yes | Yes | Yes | Yes |
+| Tamil | `ta-IN` | Yes | Yes | Yes | Yes |
+| Telugu | `te-IN` | Yes | Yes | Yes | Yes |
+| Gujarati | `gu-IN` | Yes | Yes | Yes | Yes |
+| Kannada | `kn-IN` | Yes | Yes | Yes | Yes |
+| Malayalam | `ml-IN` | Yes | Yes | Yes | Yes |
+| Marathi | `mr-IN` | Yes | Yes | Yes | Yes |
+| Punjabi | `pa-IN` | Yes | Yes | Yes | Yes |
+| Odia | `od-IN` | Yes | Yes | Yes | Yes |
 
 ---
 
@@ -765,17 +763,16 @@ Logging: Log to PostHog for monitoring
 
 ### 7.1 Testing Strategy
 
-| Level            | Tool                               | Scope                                                                                                | Coverage Target             |
-| ---------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------- |
-| **Unit**         | Vitest                             | Pure functions: slug normalization, prompt builders, parsers, cache key generation, rate-limit logic | 90%+                        |
-| **Integration**  | Vitest + MSW (Mock Service Worker) | API route handlers with mocked Sarvam/Firecrawl responses, DB queries against test Neon branch       | 80%+                        |
-| **E2E**          | Playwright                         | Full user flows: mic → SSE → review card → audio playback, rate limiting, error states               | Happy path + all edge cases |
-| **API Contract** | Zod schemas                        | Runtime validation of all Sarvam API responses, Firecrawl responses, internal API contracts          | All external boundaries     |
+| Level | Tool | Scope | Coverage Target |
+|---|---|---|---|
+| **Unit** | Vitest | Pure functions: slug normalization, prompt builders, parsers, cache key generation, rate-limit logic | 90%+ |
+| **Integration** | Vitest + MSW (Mock Service Worker) | API route handlers with mocked Sarvam/Firecrawl responses, DB queries against test Neon branch | 80%+ |
+| **E2E** | Playwright | Full user flows: mic → SSE → review card → audio playback, rate limiting, error states | Happy path + all edge cases |
+| **API Contract** | Zod schemas | Runtime validation of all Sarvam API responses, Firecrawl responses, internal API contracts | All external boundaries |
 
 ### 7.2 Key Test Scenarios
 
 **Unit Tests:**
-
 - Product slug normalization: "Redmi Note 15 Pro+" → "redmi-note-15-pro-plus"
 - Language code mapping and display names
 - Rate limit counter logic (increment, check, reset)
@@ -783,7 +780,6 @@ Logging: Log to PostHog for monitoring
 - SSE event formatting
 
 **Integration Tests:**
-
 - Full pipeline with mocked external APIs
 - Cache hit path (Redis returns data → skip scraping)
 - Cache miss path (Redis empty → scrape → synthesize → cache)
@@ -792,7 +788,6 @@ Logging: Log to PostHog for monitoring
 - Query logging (async insert doesn't block response)
 
 **E2E Tests:**
-
 - Record audio → submit → see progressive SSE updates → review card renders → audio plays
 - Landing page: trending products load, example chips clickable
 - SEO review page: `/review/redmi-note-15` renders with meta tags
