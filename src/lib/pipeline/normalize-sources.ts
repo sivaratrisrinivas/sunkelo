@@ -48,17 +48,27 @@ export async function normalizeSourcesToEnglish(
         };
       }
 
-      const translated = await translateLong(source.content, {
-        sourceLanguageCode: originalLanguageCode,
-        targetLanguageCode: "en-IN",
-      });
+      try {
+        const translated = await translateLong(source.content, {
+          sourceLanguageCode: originalLanguageCode,
+          targetLanguageCode: "en-IN",
+        });
 
-      return {
-        ...source,
-        content: translated,
-        originalLanguageCode,
-        translatedToEnglish: true,
-      };
+        return {
+          ...source,
+          content: translated,
+          originalLanguageCode,
+          translatedToEnglish: true,
+        };
+      } catch {
+        // Do not block the whole query when translation service is flaky.
+        // Keep original content and let synthesis handle mixed-language corpus.
+        return {
+          ...source,
+          originalLanguageCode,
+          translatedToEnglish: false,
+        };
+      }
     }),
   );
 

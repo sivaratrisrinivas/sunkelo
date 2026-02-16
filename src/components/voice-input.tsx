@@ -6,6 +6,7 @@ import { useSSEQuery } from "@/hooks/use-sse-query";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { LanguageBadge } from "@/components/language-badge";
 import { ProgressSteps } from "@/components/progress-steps";
+import { ReviewCard, type ReviewCardData } from "@/components/review-card";
 
 type VoiceInputProps = {
   onTranscript: (value: string) => void;
@@ -23,11 +24,14 @@ type SSEStatusData = {
 type SSEErrorData = {
   code?: string;
   message?: string;
+  suggestions?: string[];
 };
 
 type SSEDoneData = {
   sourceCount?: number;
 };
+
+type SSEReviewData = ReviewCardData;
 
 const EXAMPLE_PRODUCT_QUERIES = [
   "Redmi Note 15 kaisa hai?",
@@ -64,6 +68,11 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
   >("idle");
   const [understoodProduct, setUnderstoodProduct] = useState<string | null>(null);
   const [notProductError, setNotProductError] = useState<string | null>(null);
+  const [noReviewsError, setNoReviewsError] = useState<{
+    message: string;
+    suggestions: string[];
+  } | null>(null);
+  const [reviewData, setReviewData] = useState<ReviewCardData | null>(null);
   const detectedLanguageRef = useRef<string | null>(null);
 
   const isRecording = recorder.state === "recording";
@@ -80,6 +89,8 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
       const statusData = event.data as SSEStatusData;
       if (statusData.status === "listening") {
         setNotProductError(null);
+        setNoReviewsError(null);
+        setReviewData(null);
         setProgressStep("listening");
         setStatusText("Listening...");
       }
@@ -105,11 +116,36 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
       }
     }
 
+    if (event.type === "review") {
+      const review = event.data as SSEReviewData;
+      setReviewData(review);
+      setNoReviewsError(null);
+      setNotProductError(null);
+    }
+
     if (event.type === "error") {
       const errorData = event.data as SSEErrorData;
       setProgressStep("error");
       if (errorData.code === "NOT_A_PRODUCT") {
+        setNoReviewsError(null);
+        setReviewData(null);
         setNotProductError(getNotAProductMessage(detectedLanguageRef.current));
+      }
+      if (errorData.code === "NO_REVIEWS") {
+        setNotProductError(null);
+        setReviewData(null);
+        setNoReviewsError({
+          message: errorData.message ?? "Not enough reviews found.",
+          suggestions: errorData.suggestions ?? EXAMPLE_PRODUCT_QUERIES,
+        });
+      }
+      if (errorData.code === "INSUFFICIENT_USER_REVIEW_EVIDENCE") {
+        setNotProductError(null);
+        setReviewData(null);
+        setNoReviewsError({
+          message: errorData.message ?? "Not enough user-review evidence.",
+          suggestions: errorData.suggestions ?? EXAMPLE_PRODUCT_QUERIES,
+        });
       }
     }
 
@@ -133,7 +169,9 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
   const submitText = async () => {
     if (!textInput.trim()) return;
     setNotProductError(null);
+    setNoReviewsError(null);
     setUnderstoodProduct(null);
+    setReviewData(null);
     setProgressStep("idle");
     detectedLanguageRef.current = null;
     await query.sendQuery({ text: textInput.trim() }, handleEvent);
@@ -144,7 +182,9 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
     if (!next) return;
     setTextInput(next);
     setNotProductError(null);
+    setNoReviewsError(null);
     setUnderstoodProduct(null);
+    setReviewData(null);
     setProgressStep("idle");
     detectedLanguageRef.current = null;
     await query.sendQuery({ text: next }, handleEvent);
@@ -165,7 +205,9 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
               return;
             }
             setNotProductError(null);
+            setNoReviewsError(null);
             setUnderstoodProduct(null);
+            setReviewData(null);
             setProgressStep("idle");
             detectedLanguageRef.current = null;
             await recorder.start();
@@ -236,6 +278,29 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
           </div>
         </div>
       ) : null}
+
+      {noReviewsError ? (
+        <div className="space-y-3 rounded-lg border border-orange-700/50 bg-orange-950/30 p-3">
+          <p className="text-sm text-orange-100">{noReviewsError.message}</p>
+          <div className="flex flex-wrap gap-2">
+            {noReviewsError.suggestions.map((queryText) => (
+              <button
+                key={queryText}
+                type="button"
+                className="rounded-full border border-orange-600/60 px-3 py-1 text-xs text-orange-100 hover:bg-orange-900/40"
+                onClick={() => {
+                  void submitTextValue(`${queryText} review`);
+                }}
+              >
+                {queryText}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {progressStep === "analyzing" && !reviewData ? <ReviewCard loading /> : null}
+      {reviewData ? <ReviewCard data={reviewData} /> : null}
 
       {query.error ? <p className="text-sm text-red-400">{query.error}</p> : null}
     </div>

@@ -9,8 +9,17 @@ export type RateLimitResult = {
   resetAt: number;
 };
 
+function isRateLimitBypassed(): boolean {
+  const override = process.env.DISABLE_RATE_LIMIT;
+  if (override === "true") return true;
+  if (override === "false") return false;
+
+  // Default local/dev behavior: do not block manual testing.
+  return process.env.NODE_ENV !== "production";
+}
+
 export async function checkRateLimit(ipHash: string): Promise<RateLimitResult> {
-  if (process.env.DISABLE_RATE_LIMIT === "true") {
+  if (isRateLimitBypassed()) {
     return {
       allowed: true,
       remaining: QUERY_RATE_LIMIT_PER_DAY,

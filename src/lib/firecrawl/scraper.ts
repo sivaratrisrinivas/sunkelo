@@ -18,8 +18,11 @@ type SearchTarget = {
 };
 
 const BLOG_SITES = "site:gsmarena.com OR site:91mobiles.com OR site:smartprix.com";
-const ECOMMERCE_SITES = "site:amazon.in OR site:flipkart.com";
+const ECOMMERCE_SITES =
+  "site:amazon.in OR site:flipkart.com OR site:myntra.com OR site:ajio.com";
 const YOUTUBE_SITE = "site:youtube.com";
+const ECOMMERCE_REVIEW_URL_HINT =
+  /(review|ratings|rating|product-reviews|customer-reviews|user-reviews|opinions|reviews)/i;
 
 function buildTargets(productName: string): Record<ScrapedSourceType, SearchTarget> {
   return {
@@ -33,7 +36,7 @@ function buildTargets(productName: string): Record<ScrapedSourceType, SearchTarg
       productName,
       type: "ecommerce",
       limit: 3,
-      query: `"${productName}" user reviews India ${ECOMMERCE_SITES}`,
+      query: `"${productName}" user reviews ratings India ${ECOMMERCE_SITES}`,
     },
     youtube: {
       productName,
@@ -44,17 +47,109 @@ function buildTargets(productName: string): Record<ScrapedSourceType, SearchTarg
   };
 }
 
+function normalizeProductForSearch(productName: string): string {
+  return productName
+    .replace(/\b(v\d+(\.\d+)?|[0-9]+(\.[0-9]+)?\s*(ghz|mhz|hz|gb|tb|mp|mah|inch|in))\b/gi, " ")
+    .replace(/[^\w\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildFallbackQueries(target: SearchTarget): string[] {
+  const simplified = normalizeProductForSearch(target.productName) || target.productName;
+
+  if (target.type === "ecommerce") {
+    return [
+      `"${simplified}" customer reviews ${ECOMMERCE_SITES}`,
+      `${simplified} ratings ${ECOMMERCE_SITES}`,
+      `${simplified} site:amazon.in OR site:flipkart.com`,
+    ];
+  }
+
+  if (target.type === "blog") {
+    return [`${simplified} review ${BLOG_SITES}`];
+  }
+
+  return [`${simplified} review ${YOUTUBE_SITE}`];
+}
+
+function dedupeHits<T extends { url: string }>(hits: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const hit of hits) {
+    if (seen.has(hit.url)) continue;
+    seen.add(hit.url);
+    out.push(hit);
+  }
+  return out;
+}
+
+function isReviewLikeHit(
+  hit: { url: string; title?: string; description?: string },
+  type: ScrapedSourceType,
+): boolean {
+  const text = `${hit.url} ${hit.title ?? ""} ${hit.description ?? ""}`.toLowerCase();
+
+  if (type === "blog") {
+    return /(review|pros|cons|verdict|hands-on|comparison)/.test(text);
+  }
+  if (type === "ecommerce") {
+    return /(review|ratings|product-reviews|customer reviews)/.test(text);
+  }
+  if (type === "youtube") {
+    return /(youtube\.com\/watch|youtu\.be)/.test(text) && /(review|vs|comparison|unboxing)/.test(text);
+  }
+  return true;
+}
+
+function isPreferredEcommerceDomain(url: string): boolean {
+  return /(amazon\.in|flipkart\.com|myntra\.com|ajio\.com)/i.test(url);
+}
+
 async function searchAndScrapeTarget(
   target: SearchTarget,
   client: FirecrawlClient,
 ): Promise<ScrapedReviewSource[]> {
-  const hits = await client.search(target.query, { limit: target.limit });
+  const primaryHits = await client.search(target.query, { limit: target.limit });
+  let hits = primaryHits;
+  if (!hits.length) {
+    const fallbackQueries = buildFallbackQueries(target);
+    const fallbackResultSets = await Promise.allSettled(
+      fallbackQueries.map((query) => client.search(query, { limit: target.limit })),
+    );
+    const fallbackHits = fallbackResultSets
+      .filter(
+        (result): result is PromiseFulfilledResult<Array<{ url: string; title?: string; description?: string }>> =>
+          result.status === "fulfilled",
+      )
+      .flatMap((result) => result.value);
+    hits = dedupeHits(fallbackHits);
+  }
+
   if (!hits.length) {
     return [];
   }
 
+  let selectedHits = hits;
+  if (target.type === "ecommerce") {
+    const preferred = hits.filter((hit) => isPreferredEcommerceDomain(hit.url));
+    const reviewPages = preferred.filter(
+      (hit) =>
+        ECOMMERCE_REVIEW_URL_HINT.test(hit.url) ||
+        ECOMMERCE_REVIEW_URL_HINT.test(hit.title ?? "") ||
+        ECOMMERCE_REVIEW_URL_HINT.test(hit.description ?? ""),
+    );
+    selectedHits = (reviewPages.length ? reviewPages : preferred.length ? preferred : hits).slice(
+      0,
+      target.limit,
+    );
+  } else {
+    const prioritizedHits = hits.filter((hit) => isReviewLikeHit(hit, target.type));
+    selectedHits = (prioritizedHits.length ? prioritizedHits : hits).slice(0, target.limit);
+  }
+
   const scraped = await Promise.allSettled(
-    hits.map(async (hit) => {
+    selectedHits.map(async (hit) => {
       const data = await client.scrape(hit.url, {
         formats: ["markdown"],
         onlyMainContent: true,

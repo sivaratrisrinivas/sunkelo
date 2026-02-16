@@ -10,7 +10,7 @@ type CreateReviewInput = {
   pros: string[];
   cons: string[];
   bestFor?: string;
-  sources: Array<{ title: string; url: string }>;
+  sources: Array<{ title: string; url: string; type?: string }>;
 };
 
 type ReviewRow = {
@@ -24,7 +24,7 @@ type ReviewRow = {
   pros: string[];
   cons: string[];
   best_for: string | null;
-  sources: Array<{ title: string; url: string }>;
+  sources: Array<{ title: string; url: string; type?: string }>;
   created_at: string;
 };
 

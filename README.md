@@ -77,10 +77,10 @@ Completed:
 - **Sprint 2:** voice capture, STT integration layer, SSE pipeline foundation, language badge flow
 - **Sprint 3:** intent/entity extraction, alias resolution, progress steps UI, non-product rejection UI, and dedicated Sprint 3 test coverage
 - **Sprint 4:** Firecrawl client + source scraping/parsing, Mayura translation wrapper/chunking, source normalization pipeline, `/api/sources` endpoint, and Sprint 4 test suite
+- **Sprint 5:** review synthesis pipeline, `ReviewCard` + loading skeleton, review persistence, `NO_REVIEWS` UX, and strict user-review evidence mode
 
 Planned next:
 
-- Review synthesis
 - Translation + TTS
 - Caching/performance
 - Trending, SEO pages, analytics, production hardening
@@ -105,6 +105,10 @@ Detailed product spec lives in `docs/spec.md`.
 
 1. Create `.env.local` and add required keys (see `docs/spec.md` section `7.3 Environment Variables`).
    - For local stress testing, set `DISABLE_RATE_LIMIT=true` to bypass daily query caps.
+   - Optional stricter review quality gate:
+     - `STRICT_REVIEW_EVIDENCE_MODE=true`
+     - `STRICT_REVIEW_MIN_ECOMMERCE_SOURCES=2`
+     - `STRICT_REVIEW_MIN_SIGNAL_HITS=2`
 
 2. Install and run:
 
@@ -139,3 +143,12 @@ npm run build
 - `scripts` - seed and tooling scripts
 - `docs/spec.md` - product and architecture specification
 - `docs/sprints.md` - sprint-by-sprint execution plan
+
+---
+
+## Current Limitation (Important)
+
+- Review synthesis uses web-scraped public signals, not a dedicated verified-purchaser dataset.
+- Authenticity is inferred from domain trust + textual review cues.
+- So output is "real public user-review content where available", not guaranteed pure user-only corpus.
+- Enable strict mode to block low-evidence synthesis responses.

@@ -10,6 +10,7 @@ export type QueryStatus =
 export type PipelineErrorCode =
   | "NOT_A_PRODUCT"
   | "NO_REVIEWS"
+  | "INSUFFICIENT_USER_REVIEW_EVIDENCE"
   | "RATE_LIMITED"
   | "STT_FAILED"
   | "SERVICE_UNAVAILABLE"

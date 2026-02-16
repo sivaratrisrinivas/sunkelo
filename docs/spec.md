@@ -14,7 +14,8 @@ India's next 500M internet users are voice-first. Before buying products, they w
 - ✅ Sprint 2 completed: voice capture + text fallback, STT integration layer, SSE query route and client hook, language badge display
 - ✅ Sprint 3 completed: Sarvam chat/entity extraction, alias resolution, searching-status SSE, ProgressSteps UI, non-product rejection UI + tests
 - ✅ Sprint 4 completed: Firecrawl client/scraper/parsers, Mayura translation wrapper + chunking, source normalization to English, `/api/sources` endpoint, optional Firecrawl contract smoke test
-- ⏳ Sprint 5+ remain in planned state and are tracked in `docs/sprints.md`
+- ✅ Sprint 5 completed: review synthesis pipeline, structured ReviewCard UI, DB persistence, NO_REVIEWS flow, strict user-review evidence gate
+- ⏳ Sprint 6+ remain in planned state and are tracked in `docs/sprints.md`
 
 ### Core Objectives
 
@@ -414,6 +415,9 @@ event: error
 data: {"code": "NO_REVIEWS", "message": "Not enough reviews found for this product."}
 
 event: error
+data: {"code": "INSUFFICIENT_USER_REVIEW_EVIDENCE", "message": "Not enough user-review evidence."}
+
+event: error
 data: {"code": "NOT_A_PRODUCT", "message": "Ask about any product review or comparison."}
 
 event: error
@@ -670,6 +674,26 @@ Response:
 UI: Shows error message + trending products as fallback
 ```
 
+### 6.3.1 Important limitation (current version)
+
+```
+Current pipeline still uses web-scraped signals, not a dedicated verified-purchaser dataset.
+Authenticity is inferred from source domain + textual review cues.
+So output should be interpreted as "real public user-review content where available",
+not guaranteed pure user-only corpus.
+```
+
+### 6.3.2 Strict user-review evidence mode
+
+```
+When STRICT_REVIEW_EVIDENCE_MODE=true:
+- Require at least STRICT_REVIEW_MIN_ECOMMERCE_SOURCES ecommerce sources (default 2)
+- Require at least STRICT_REVIEW_MIN_SIGNAL_HITS review-signal hits (default 2)
+- If thresholds fail, block synthesis and emit:
+  event: error
+  data: {"code":"INSUFFICIENT_USER_REVIEW_EVIDENCE","message":"Not enough user-review evidence."}
+```
+
 ### 6.4 Edge Case: Non-Product Query
 
 ```
@@ -791,6 +815,9 @@ NEXT_PUBLIC_APP_URL=               # Public app URL
 CRON_SECRET=                       # Secret for cron job auth
 RATE_LIMIT_PER_DAY=5               # Queries per IP per day
 DISABLE_RATE_LIMIT=false           # Local/dev toggle to bypass query limit when true
+STRICT_REVIEW_EVIDENCE_MODE=false  # When true, blocks synthesis if user-review evidence is weak
+STRICT_REVIEW_MIN_ECOMMERCE_SOURCES=2
+STRICT_REVIEW_MIN_SIGNAL_HITS=2
 REVIEW_CACHE_TTL_DAYS=7            # Review cache TTL in days
 
 # Analytics

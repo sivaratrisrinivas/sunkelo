@@ -21,6 +21,8 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 export type FirecrawlSearchResult = {
   url: string;
   title?: string;
+  description?: string;
+  position?: number;
 };
 
 export type FirecrawlSearchOptions = {
@@ -56,11 +58,15 @@ type FirecrawlSearchResponse = {
     | Array<{
         url?: string;
         title?: string;
+        description?: string;
+        position?: number;
       }>
     | {
         web?: Array<{
           url?: string;
           title?: string;
+          description?: string;
+          position?: number;
         }>;
       };
 };
@@ -139,10 +145,17 @@ export function getFirecrawlClient(): FirecrawlClient {
 
       const results = Array.isArray(payload.data) ? payload.data : (payload.data?.web ?? []);
       return results
-        .filter((item): item is { url: string; title?: string } => typeof item.url === "string")
+        .filter(
+          (
+            item,
+          ): item is { url: string; title?: string; description?: string; position?: number } =>
+            typeof item.url === "string",
+        )
         .map((item) => ({
           url: item.url,
           title: item.title,
+          description: item.description,
+          position: item.position,
         }));
     },
     async scrape(url, options = {}) {

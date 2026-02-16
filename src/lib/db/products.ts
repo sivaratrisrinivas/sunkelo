@@ -69,3 +69,28 @@ export async function setTrending(slug: string, isTrending: boolean): Promise<vo
     WHERE slug = ${slug}
   `;
 }
+
+export async function upsertProductBySlug(input: {
+  slug: string;
+  brand?: string | null;
+  model: string;
+  priceRange?: string | null;
+  isTrending?: boolean;
+}): Promise<Product> {
+  const sql = getDbClient();
+  const brand = input.brand?.trim() || "Unknown";
+  const model = input.model.trim() || input.slug;
+  const rows = (await sql`
+    INSERT INTO products (brand, model, slug, price_range, is_trending)
+    VALUES (${brand}, ${model}, ${input.slug}, ${input.priceRange ?? null}, ${input.isTrending ?? false})
+    ON CONFLICT (slug)
+    DO UPDATE SET
+      brand = EXCLUDED.brand,
+      model = EXCLUDED.model,
+      price_range = COALESCE(products.price_range, EXCLUDED.price_range),
+      updated_at = NOW()
+    RETURNING id, brand, model, slug, price_range, is_trending, created_at, updated_at
+  `) as ProductRow[];
+
+  return mapRow(rows[0]);
+}

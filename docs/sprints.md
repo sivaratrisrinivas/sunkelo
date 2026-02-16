@@ -12,7 +12,8 @@
 | Sprint 2 | ✅ Done | Voice capture, STT wrapper, SSE flow, API query route, language badge |
 | Sprint 3 | ✅ Done | Intent/entity extraction, alias resolution, progress steps, non-product UI, Sprint 3 test suite |
 | Sprint 4 | ✅ Done | Firecrawl client/scraper/parsers, Mayura translation wrapper/chunking, source normalization, `/api/sources`, optional contract smoke test, any-product intent support, explicit done-state UI |
-| Sprint 5-10 | ⏳ Pending | Planned and tracked below |
+| Sprint 5 | ✅ Done | Review synthesis + ReviewCard + persistence + NO_REVIEWS handling + strict user-review evidence gate |
+| Sprint 6-10 | ⏳ Pending | Planned and tracked below |
 
 ---
 
@@ -121,6 +122,8 @@
 
 ## Sprint 5: Review Synthesis & Review Card
 
+**Status:** ✅ Done
+
 **Sprint Goal:** Full text review generated from scraped sources. Structured review card displayed on screen.
 
 **Demo:** Speak "Redmi Note 15 kaisa hai?" → see full review card with verdict badge, pros, cons, best-for, confidence score, source links.
@@ -135,6 +138,7 @@
 | 5.6 | Implement Postgres persistence in pipeline — after synthesis: upsert product (if new slug), insert review row, link to product FK | Integration test: pipeline runs → `products` row exists with correct slug, `reviews` row exists with correct `product_id` FK |
 | 5.7 | Wire review SSE event to UI — when `review` event arrives, transition from skeleton to filled ReviewCard, scroll into view | Playwright E2E: submit query → skeleton appears during `analyzing` step → review card populates with verdict, pros, cons |
 | 5.8 | Implement error UI for `NO_REVIEWS` — when scraper returns <2 sources, emit `error(NO_REVIEWS)` with trending product suggestions | Playwright E2E: mock scraper returns 0 results → error card with "Not enough reviews" + trending suggestions |
+| 5.9 | Add strict user-review evidence mode to synthesis workflow — configurable evidence thresholds before synthesis (`STRICT_REVIEW_EVIDENCE_MODE`, min ecommerce sources, min review-signal hits). If unmet, block summary and emit `error(INSUFFICIENT_USER_REVIEW_EVIDENCE)` | Integration test: strict mode enabled + weak ecommerce evidence → SSE emits `INSUFFICIENT_USER_REVIEW_EVIDENCE`, no synthesis call |
 
 ---
 

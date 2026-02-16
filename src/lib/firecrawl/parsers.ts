@@ -1,6 +1,7 @@
 import type { ScrapedReviewSource } from "./scraper";
 
 const MAX_SOURCE_CONTENT_CHARS = 2000;
+const ECOMMERCE_REVIEW_SENTENCE_LIMIT = 14;
 
 const BOILERPLATE_PATTERNS = [
   /privacy policy/gi,
@@ -61,6 +62,23 @@ function truncateAtSentenceBoundary(input: string, maxChars: number): string {
   return candidate.trim();
 }
 
+function extractReviewSentences(input: string): string {
+  const sentences = input
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  if (!sentences.length) {
+    return input;
+  }
+
+  const reviewSignal =
+    /(review|rating|star|customer|buyer|verified|purchase|value for money|quality|delivery|fit|size|comfortable|defect|return|exchange|pros|cons|good|bad)/i;
+  const picked = sentences.filter((sentence) => reviewSignal.test(sentence));
+  const selected = (picked.length >= 3 ? picked : sentences).slice(0, ECOMMERCE_REVIEW_SENTENCE_LIMIT);
+  return selected.join(" ");
+}
+
 export function parseReviewMarkdown(markdown: string): string {
   const withoutMarkdown = stripMarkdown(markdown);
   const withoutBoilerplate = stripBoilerplate(withoutMarkdown);
@@ -69,9 +87,17 @@ export function parseReviewMarkdown(markdown: string): string {
 }
 
 export function parseScrapedSource(source: ScrapedReviewSource): ScrapedReviewSource {
+  const parsedContent = parseReviewMarkdown(source.content);
+  if (source.type === "ecommerce") {
+    return {
+      ...source,
+      content: truncateAtSentenceBoundary(extractReviewSentences(parsedContent), MAX_SOURCE_CONTENT_CHARS),
+    };
+  }
+
   return {
     ...source,
-    content: parseReviewMarkdown(source.content),
+    content: parsedContent,
   };
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { FIRECRAWL_SOURCE_CONTENT_LIMIT, parseReviewMarkdown } from "./parsers";
+import { FIRECRAWL_SOURCE_CONTENT_LIMIT, parseReviewMarkdown, parseScrapedSource } from "./parsers";
 
 describe("parseReviewMarkdown", () => {
   it("extracts clean review text from raw markdown", () => {
@@ -45,5 +45,23 @@ Privacy Policy
 
     expect(parsed.length).toBeLessThanOrEqual(FIRECRAWL_SOURCE_CONTENT_LIMIT);
     expect(/[.!?]$/.test(parsed)).toBe(true);
+  });
+
+  it("prioritizes ecommerce review-like sentences in parsed source", () => {
+    const source = {
+      url: "https://flipkart.com/p/reviews",
+      title: "Flipkart reviews",
+      type: "ecommerce" as const,
+      content: `
+        Shipping details. Privacy policy. Customer review: Great battery life and good display quality.
+        Another buyer says camera quality is decent for this price.
+        Refund policy. Verified purchase notes mention value for money.
+      `,
+    };
+
+    const parsed = parseScrapedSource(source);
+    expect(parsed.content.toLowerCase()).toContain("customer review");
+    expect(parsed.content.toLowerCase()).toContain("value for money");
+    expect(parsed.content.toLowerCase()).not.toContain("privacy policy");
   });
 });

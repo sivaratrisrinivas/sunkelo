@@ -1,0 +1,384 @@
+import { z } from "zod";
+
+import { createChatCompletion } from "@/lib/sarvam/chat";
+import type { NormalizedReviewSource } from "@/lib/pipeline/normalize-sources";
+
+export const synthesizedReviewSchema = z.object({
+  verdict: z.enum(["buy", "skip", "wait"]),
+  pros: z.array(z.string().min(1)).min(1).max(5),
+  cons: z.array(z.string().min(1)).min(1).max(5),
+  bestFor: z.string().min(1),
+  summary: z.string().min(100).max(2000),
+  tldr: z.string().min(30).max(500),
+  confidenceScore: z.number().min(0).max(1),
+  sources: z
+    .array(
+      z.object({
+        title: z.string().min(1),
+        url: z.string().url(),
+        type: z.enum(["blog", "ecommerce", "youtube"]).optional(),
+      }),
+    )
+    .min(1),
+});
+
+export type SynthesizedReview = z.infer<typeof synthesizedReviewSchema>;
+
+export class SynthesisError extends Error {
+  public readonly details?: Record<string, unknown>;
+
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message);
+    this.name = "SynthesisError";
+    this.details = details;
+  }
+}
+
+const SYNTHESIS_SYSTEM_PROMPT = `
+You are a product review synthesizer.
+Given a product and multiple review sources, produce a balanced response as STRICT JSON.
+Never include markdown fences, commentary, or extra keys.
+
+Output shape:
+{
+  "verdict": "buy" | "skip" | "wait",
+  "pros": string[] (1 to 5 items),
+  "cons": string[] (1 to 5 items),
+  "bestFor": string,
+  "summary": string (100 to 2000 chars),
+  "tldr": string (30 to 500 chars),
+  "confidenceScore": number (0 to 1),
+  "sources": [{"title": string, "url": string, "type": "blog" | "ecommerce" | "youtube"}]
+}
+
+Rules:
+- Use only evidence from provided sources.
+- Keep claims grounded and avoid invented specs.
+- Match sources to the final citations list.
+- If ecommerce sources are present, prioritize user-review sentiment from those sources in summary/pros/cons.
+- Treat blog/youtube sources as expert context and ecommerce sources as user sentiment context.
+`.trim();
+
+function extractJsonObject(raw: string): string {
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("Synthesis response did not include a JSON object");
+  }
+  return raw.slice(start, end + 1);
+}
+
+const TEXT_FALLBACK_SYSTEM_PROMPT = `
+You produce a structured review in plain text (NOT JSON).
+Return EXACTLY this format and headings:
+
+VERDICT: <buy|skip|wait>
+CONFIDENCE: <0 to 1>
+BEST_FOR: <single line>
+SUMMARY: <single paragraph, at least 100 chars>
+TLDR: <single paragraph, at least 30 chars>
+PROS:
+- <item 1>
+- <item 2>
+CONS:
+- <item 1>
+- <item 2>
+SOURCES:
+- <title> | <url> | <blog|ecommerce|youtube>
+
+Rules:
+- No markdown code fences.
+- Keep headings exactly as written.
+- Provide at least 1 pro, 1 con, and 1 source.
+`.trim();
+
+function buildSourceBlock(sources: NormalizedReviewSource[]): string {
+  return sources
+    .map((source, index) => {
+      const contextTag = source.type === "ecommerce" ? "USER_REVIEWS" : "EXPERT_OR_CONTENT";
+      return [
+        `Source ${index + 1}:`,
+        `- Context: ${contextTag}`,
+        `- Title: ${source.title}`,
+        `- URL: ${source.url}`,
+        `- Type: ${source.type}`,
+        `- Content: ${source.content}`,
+      ].join("\n");
+    })
+    .join("\n\n");
+}
+
+function coerceString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+}
+
+function coerceStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item) => item.length > 0)
+      .slice(0, 5);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(/[,\n]/g)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 5);
+  }
+  return [];
+}
+
+function coerceConfidenceScore(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return 0.6;
+  return Math.max(0, Math.min(1, parsed));
+}
+
+function coerceVerdict(value: unknown): "buy" | "skip" | "wait" {
+  if (value === "buy" || value === "skip" || value === "wait") {
+    return value;
+  }
+  return "wait";
+}
+
+function ensureLength(value: string, min: number, fallback: string): string {
+  const base = value.trim() || fallback;
+  if (base.length >= min) return base;
+  return `${base} ${fallback}`.trim().slice(0, Math.max(min, fallback.length));
+}
+
+function coerceSources(
+  value: unknown,
+  fallbackSources: NormalizedReviewSource[],
+): Array<{ title: string; url: string; type: "blog" | "ecommerce" | "youtube" }> {
+  const fromValue = Array.isArray(value)
+    ? value
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const candidate = item as Record<string, unknown>;
+          const title = coerceString(candidate.title);
+          const rawUrl = coerceString(candidate.url);
+          const type = candidate.type;
+          if (!title || !rawUrl) return null;
+          try {
+            const normalized = new URL(rawUrl).toString();
+            if (type === "blog" || type === "ecommerce" || type === "youtube") {
+              return { title, url: normalized, type };
+            }
+            return { title, url: normalized, type: "blog" as const };
+          } catch {
+            return null;
+          }
+        })
+        .filter(
+          (item): item is { title: string; url: string; type: "blog" | "ecommerce" | "youtube" } =>
+            Boolean(item),
+        )
+    : [];
+
+  if (fromValue.length > 0) {
+    return fromValue;
+  }
+
+  return fallbackSources.slice(0, 5).map((source) => ({
+    title: source.title,
+    url: source.url,
+    type: source.type,
+  }));
+}
+
+function coerceReviewShape(
+  value: unknown,
+  fallbackSources: NormalizedReviewSource[],
+): SynthesizedReview {
+  const candidate = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+
+  const pros = coerceStringArray(candidate.pros);
+  const cons = coerceStringArray(candidate.cons);
+  const summaryRaw = coerceString(candidate.summary) ?? "";
+  const tldrRaw = coerceString(candidate.tldr ?? candidate.tl_dr) ?? "";
+  const bestForRaw = coerceString(candidate.bestFor ?? candidate.best_for) ?? "General buyers";
+
+  const result = {
+    verdict: coerceVerdict(candidate.verdict),
+    pros: pros.length ? pros : ["Balanced performance for typical users"],
+    cons: cons.length ? cons : ["Some trade-offs depend on budget and use-case"],
+    bestFor: bestForRaw,
+    summary: ensureLength(
+      summaryRaw,
+      100,
+      "This review is synthesized from multiple public sources and highlights practical trade-offs for buyers.",
+    ),
+    tldr: ensureLength(
+      tldrRaw,
+      30,
+      "Solid option overall, but compare pricing and your usage before buying.",
+    ),
+    confidenceScore: coerceConfidenceScore(candidate.confidenceScore ?? candidate.confidence_score),
+    sources: coerceSources(candidate.sources, fallbackSources),
+  };
+
+  const parsed = synthesizedReviewSchema.safeParse(result);
+  if (!parsed.success) {
+    throw new SynthesisError("Synthesis schema validation failed", {
+      issues: parsed.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      })),
+    });
+  }
+  return parsed.data;
+}
+
+function parseTextFallback(
+  text: string,
+  fallbackSources: NormalizedReviewSource[],
+): SynthesizedReview {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const getValue = (prefix: string): string => {
+    const line = lines.find((value) => value.toUpperCase().startsWith(prefix));
+    if (!line) return "";
+    return line.slice(prefix.length).trim();
+  };
+
+  const collectBullets = (section: string): string[] => {
+    const sectionIndex = lines.findIndex((line) => line.toUpperCase() === section);
+    if (sectionIndex === -1) return [];
+    const values: string[] = [];
+    for (let i = sectionIndex + 1; i < lines.length; i += 1) {
+      const line = lines[i];
+      if (/^[A-Z_]+:\s*/.test(line) || line.toUpperCase() === "PROS:" || line.toUpperCase() === "CONS:" || line.toUpperCase() === "SOURCES:") {
+        break;
+      }
+      if (line.startsWith("- ")) {
+        values.push(line.slice(2).trim());
+      }
+    }
+    return values.filter(Boolean);
+  };
+
+  const sourceBullets = collectBullets("SOURCES:");
+  const parsedSources = sourceBullets
+    .map((bullet) => {
+      const parts = bullet.split("|").map((part) => part.trim());
+      if (parts.length < 2) return null;
+      const [title, url, rawType] = parts;
+      try {
+        const normalizedUrl = new URL(url).toString();
+        const type = rawType === "ecommerce" || rawType === "youtube" ? rawType : "blog";
+        return {
+          title: title || "Source",
+          url: normalizedUrl,
+          type,
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter(
+      (item): item is { title: string; url: string; type: "blog" | "ecommerce" | "youtube" } =>
+        Boolean(item),
+    );
+
+  return coerceReviewShape(
+    {
+      verdict: getValue("VERDICT:").toLowerCase(),
+      confidenceScore: getValue("CONFIDENCE:"),
+      bestFor: getValue("BEST_FOR:"),
+      summary: getValue("SUMMARY:"),
+      tldr: getValue("TLDR:"),
+      pros: collectBullets("PROS:"),
+      cons: collectBullets("CONS:"),
+      sources: parsedSources,
+    },
+    fallbackSources,
+  );
+}
+
+export async function synthesizeReview(params: {
+  traceId?: string;
+  productName: string;
+  sources: NormalizedReviewSource[];
+}): Promise<SynthesizedReview> {
+  const userPrompt = [
+    `Product: ${params.productName}`,
+    "",
+    "Use the following sources:",
+    buildSourceBlock(params.sources),
+  ].join("\n");
+
+  let content: string;
+  try {
+    content = await createChatCompletion({
+      model: "sarvam-m",
+      temperature: 0.3,
+      messages: [
+        { role: "system", content: SYNTHESIS_SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+    });
+  } catch (error) {
+    console.error("[synthesize] initial chat call failed", {
+      traceId: params.traceId,
+      productName: params.productName,
+      sourceCount: params.sources.length,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw new SynthesisError("Synthesis chat call failed", {
+      stage: "initial_chat",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    const parsedJson = JSON.parse(extractJsonObject(content));
+    return coerceReviewShape(parsedJson, params.sources);
+  } catch {
+    console.warn("[synthesize] initial parse failed, using text fallback", {
+      traceId: params.traceId,
+      productName: params.productName,
+    });
+    try {
+      const textFallback = await createChatCompletion({
+        model: "sarvam-m",
+        temperature: 0,
+        messages: [
+          { role: "system", content: TEXT_FALLBACK_SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: [
+              `Product: ${params.productName}`,
+              "",
+              "Context:",
+              content,
+              "",
+              "If context is malformed, still produce best-effort structured output.",
+            ].join("\n"),
+          },
+        ],
+      });
+      const parsed = parseTextFallback(textFallback, params.sources);
+      console.info("[synthesize] text fallback succeeded", {
+        traceId: params.traceId,
+        productName: params.productName,
+        sourceCount: parsed.sources.length,
+      });
+      return parsed;
+    } catch (fallbackError) {
+      if (fallbackError instanceof SynthesisError) {
+        throw fallbackError;
+      }
+      throw new SynthesisError("Failed to synthesize review", {
+        stage: "fallback_text_parse",
+        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+      });
+    }
+  }
+}

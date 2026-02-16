@@ -40,11 +40,44 @@ describe("firecrawl scraper helpers", () => {
 
   it("searchEcommerce handles zero results gracefully", async () => {
     const client = createMockClient();
-    client.search.mockResolvedValueOnce([]);
+    client.search
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
 
     const result = await searchEcommerce("Unknown Phone", client);
     expect(result).toEqual([]);
+    expect(client.search).toHaveBeenCalledWith(
+      expect.stringContaining("site:myntra.com OR site:ajio.com"),
+      expect.any(Object),
+    );
     expect(client.scrape).not.toHaveBeenCalled();
+  });
+
+  it("searchEcommerce uses fallback queries when primary search is empty", async () => {
+    const client = createMockClient();
+    client.search
+      .mockResolvedValueOnce([]) // primary
+      .mockResolvedValueOnce([
+        {
+          url: "https://www.flipkart.com/dell-mouse/product-reviews/itm1",
+          title: "Flipkart customer reviews",
+          description: "ratings and reviews",
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    client.scrape.mockResolvedValueOnce({
+      url: "https://www.flipkart.com/dell-mouse/product-reviews/itm1",
+      markdown: "Great comfort. Good battery life. Customer review text.",
+      title: "Flipkart customer reviews",
+    });
+
+    const result = await searchEcommerce("Dell v5.0 2.4Ghz Multi-Device Wireless Mouse", client);
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toContain("flipkart.com");
+    expect(client.search).toHaveBeenCalledTimes(4);
   });
 
   it("searchYouTube returns transcript-like content", async () => {
@@ -60,6 +93,43 @@ describe("firecrawl scraper helpers", () => {
     expect(result).toHaveLength(1);
     expect(result[0].type).toBe("youtube");
     expect(result[0].content).toContain("transcript");
+  });
+
+  it("searchEcommerce prioritizes famous ecommerce review pages", async () => {
+    const client = createMockClient();
+    client.search.mockResolvedValueOnce([
+      {
+        url: "https://example.com/apple-iphone-17-review",
+        title: "External review",
+        description: "not ecommerce",
+      },
+      {
+        url: "https://www.flipkart.com/apple-iphone-17/product-reviews/itm123",
+        title: "Flipkart ratings and reviews",
+        description: "customer reviews",
+      },
+      {
+        url: "https://www.ajio.com/product/p/12345/reviews",
+        title: "Ajio reviews",
+        description: "buyer reviews",
+      },
+    ]);
+    client.scrape
+      .mockResolvedValueOnce({
+        url: "https://www.flipkart.com/apple-iphone-17/product-reviews/itm123",
+        markdown: "Great phone from verified buyers.",
+        title: "Flipkart ratings and reviews",
+      })
+      .mockResolvedValueOnce({
+        url: "https://www.ajio.com/product/p/12345/reviews",
+        markdown: "Good fit and quality from customers.",
+        title: "Ajio reviews",
+      });
+
+    const result = await searchEcommerce("Apple iPhone 17", client);
+    expect(result).toHaveLength(2);
+    expect(result[0].url).toContain("flipkart.com");
+    expect(result[1].url).toContain("ajio.com");
   });
 });
 

@@ -25,7 +25,7 @@ export async function transcribeAudio(buffer: Buffer): Promise<STTResult> {
   const response = await fetch(`${baseUrl}/speech-to-text`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      "api-subscription-key": apiKey,
     },
     body: form,
   });

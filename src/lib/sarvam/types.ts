@@ -30,7 +30,7 @@ export const chatCompletionResponseSchema = z.object({
     .array(
       z.object({
         index: z.number().optional(),
-        finish_reason: z.enum(["stop", "length", "tool_calls"]),
+        finish_reason: z.enum(["stop", "length", "tool_calls", "content_filter"]),
         message: z.object({
           role: z.string().optional(),
           content: z.string().min(1),

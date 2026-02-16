@@ -60,4 +60,21 @@ describe("normalizeSourcesToEnglish", () => {
     expect(normalized[0].translatedToEnglish).toBe(false);
     expect(mockTranslateLong).not.toHaveBeenCalled();
   });
+
+  it("falls back to original source when translation fails", async () => {
+    mockTranslateLong.mockRejectedValueOnce(new Error("Sarvam service unavailable"));
+
+    const normalized = await normalizeSourcesToEnglish([
+      {
+        url: "https://example.com/hi-only",
+        title: "HI",
+        type: "blog" as const,
+        content: "यह फोन बहुत अच्छा है।",
+      },
+    ]);
+
+    expect(normalized[0].content).toBe("यह फोन बहुत अच्छा है।");
+    expect(normalized[0].translatedToEnglish).toBe(false);
+    expect(normalized[0].originalLanguageCode).toBe("hi-IN");
+  });
 });

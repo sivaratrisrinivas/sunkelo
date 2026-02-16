@@ -9,7 +9,7 @@ export type Review = {
   pros: string[];
   cons: string[];
   bestFor?: string | null;
-  sources: Array<{ title: string; url: string }>;
+  sources: Array<{ title: string; url: string; type?: "blog" | "ecommerce" | "youtube" }>;
   createdAt: Date;
 };
 
