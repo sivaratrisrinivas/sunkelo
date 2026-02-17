@@ -2,13 +2,13 @@
 
 Voice-based product review aggregator for Tier-2/3 India.
 
-Ask in your language. Get a balanced product review back as text + audio.
+Ask about any product in your language. Get a balanced review back as text + audio.
 
 ---
 
 ## The Gap
 
-Before buying a phone, TV, or appliance, people watch YouTube and read e-commerce reviews.  
+Before buying any product — phones, books, appliances, kitchenware — people watch YouTube and read e-commerce reviews.  
 But most useful review content is in Hindi/English.
 
 If someone is most comfortable in Odia, Assamese, or another regional language, product research is harder than it should be.
@@ -26,11 +26,12 @@ User says:
 System does:
 
 1. Converts speech to text and detects language.
-2. Finds and aggregates reviews from YouTube + e-commerce + review sites.
+2. Finds and aggregates reviews from YouTube + e-commerce + review sites (13 blog domains + 4 e-commerce sites).
 3. Uses `Sarvam-M` to produce one balanced opinion from multiple sources.
-4. Uses translation (`Mayura`) to include useful content across languages.
-5. Uses TTS (`Bulbul`) to return an audio summary in the user's language.
-6. Streams progress and results to the UI in real time.
+4. Uses `Gemini 2.0 Flash` to generate a natural, conversational audio script in the user's language.
+5. Uses translation (`Mayura`) to include useful content across languages.
+6. Uses TTS (`Bulbul`) to return an audio summary in the user's language.
+7. Streams progress and results to the UI in real time.
 
 ---
 
@@ -47,7 +48,8 @@ SunkeLo is built to close that gap with zero-login, tap-and-ask UX.
 
 - **Input:** voice first, text fallback
 - **Output:** structured review card + spoken summary
-- **Sources:** YouTube, e-commerce reviews, blog reviews
+- **Products:** any consumer product — electronics, books, kitchenware, fashion, beauty, appliances, etc.
+- **Sources:** YouTube, e-commerce reviews (Amazon, Flipkart, Myntra, Ajio), blog reviews (13 trusted domains)
 - **Languages:** 11 supported languages (10 Indic + English)
 - **Target latency:** first useful response fast, full audio within ~30s
 - **Architecture style:** cache-first to reduce cost and improve repeat-query speed
@@ -78,11 +80,12 @@ Completed:
 - **Sprint 3:** intent/entity extraction, alias resolution, progress steps UI, non-product rejection UI, and dedicated Sprint 3 test coverage
 - **Sprint 4:** Firecrawl client + source scraping/parsing, Mayura translation wrapper/chunking, source normalization pipeline, `/api/sources` endpoint, and Sprint 4 test suite
 - **Sprint 5:** review synthesis pipeline, `ReviewCard` + loading skeleton, review persistence, `NO_REVIEWS` UX, and strict user-review evidence mode
-- **Sprint 6:** translation + TTS + audio playback pipeline, `AudioPlayer` component, localized error messages
-- **Sprint 7:** caching layer + performance optimizations
+- **Sprint 6:** translation + TTS + audio playback pipeline, `AudioPlayer` component, localized error messages + Gemini-powered conversational audio scripts
+- **Sprint 7:** partially done — `SERVICE_UNAVAILABLE` error path. Review/alias/localized caches, retry with backoff, async query logging, and quota UI still pending.
 
 Planned next:
 
+- Complete Sprint 7 caching + performance
 - Trending, SEO pages, analytics
 - Production hardening
 
@@ -97,6 +100,7 @@ Detailed product spec lives in `docs/spec.md`.
 - `Neon Postgres`
 - `Upstash Redis`
 - `Sarvam AI` (`Saaras`, `Sarvam-M`, `Mayura`, `Bulbul`)
+- `Google Gemini` (`2.0 Flash` — conversational audio script generation)
 - `Firecrawl`
 - `Vitest` + `Playwright`
 
@@ -105,6 +109,7 @@ Detailed product spec lives in `docs/spec.md`.
 ## Local Setup
 
 1. Create `.env.local` and add required keys (see `docs/spec.md` section `7.3 Environment Variables`).
+   - `GEMINI_API_KEY` is required for conversational audio script generation.
    - For local stress testing, set `DISABLE_RATE_LIMIT=true` to bypass daily query caps.
    - Optional stricter review quality gate:
      - `STRICT_REVIEW_EVIDENCE_MODE=true`

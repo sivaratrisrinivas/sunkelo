@@ -22,7 +22,7 @@ export type ExtractedEntity = {
 };
 
 const ENTITY_SYSTEM_PROMPT =
-  'You are a product entity extractor. Return ONLY JSON with shape {"intent":"product_review"|"unsupported","brand":"string|null","model":"string|null","variant":"string|null"}. Mark intent as "product_review" for any product-oriented buying/review/comparison query (phones, laptops, earbuds, TVs, appliances, etc). Use "unsupported" only for non-product topics (weather, jokes, personal chat, etc).';
+  'You are a product entity extractor. Return ONLY JSON with shape {"intent":"product_review"|"unsupported","brand":"string|null","model":"string|null","variant":"string|null"}. Mark intent as "product_review" for ANY consumer product buying/review/comparison query — electronics, books, kitchenware, fashion, beauty, sports, furniture, toys, groceries, appliances, stationery, or any item people buy and review on ecommerce sites. Use "unsupported" ONLY for non-product topics (weather, jokes, math, personal chat, directions, news, etc). When in doubt, assume product_review.';
 
 function extractJson(value: string): string {
   const start = value.indexOf("{");

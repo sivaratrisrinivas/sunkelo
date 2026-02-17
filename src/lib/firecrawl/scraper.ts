@@ -81,8 +81,8 @@ type SearchTarget = {
   limit: number;
 };
 
-const BLOG_SITES = "site:gsmarena.com OR site:91mobiles.com OR site:smartprix.com";
-const ECOMMERCE_SITES = "site:amazon.in OR site:flipkart.com";
+const BLOG_SITES = "site:gsmarena.com OR site:91mobiles.com OR site:smartprix.com OR site:androidauthority.com OR site:techradar.com OR site:theverge.com OR site:cnet.com OR site:tomsguide.com OR site:notebookcheck.net OR site:gadgets360.com OR site:digit.in OR site:thewirecutter.com OR site:goodreads.com";
+const ECOMMERCE_SITES = "site:amazon.in OR site:flipkart.com OR site:myntra.com OR site:ajio.com";
 const YOUTUBE_SITE = "site:youtube.com";
 const ECOMMERCE_REVIEW_URL_HINT =
   /(review|ratings|rating|product-reviews|customer-reviews|user-reviews|opinions|reviews)/i;
@@ -97,9 +97,13 @@ const TRUSTED_BLOG_DOMAINS = [
   "cnet.com",
   "tomsguide.com",
   "notebookcheck.net",
+  "gadgets360.com",
+  "digit.in",
+  "thewirecutter.com",
+  "goodreads.com",
 ] as const;
 
-const TRUSTED_ECOMMERCE_DOMAINS = ["amazon.in", "flipkart.com"] as const;
+const TRUSTED_ECOMMERCE_DOMAINS = ["amazon.in", "flipkart.com", "myntra.com", "ajio.com"] as const;
 
 const TRUSTED_YOUTUBE_HOSTS = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"] as const;
 
@@ -108,14 +112,14 @@ function buildTargets(productName: string): Record<ScrapedSourceType, SearchTarg
     blog: {
       productName,
       type: "blog",
-      limit: 3,
-      query: `"${productName}" review India 2025 ${BLOG_SITES}`,
+      limit: 5,
+      query: `"${productName}" review ${BLOG_SITES}`,
     },
     ecommerce: {
       productName,
       type: "ecommerce",
-      limit: 3,
-      query: `"${productName}" user reviews ratings India ${ECOMMERCE_SITES}`,
+      limit: 4,
+      query: `"${productName}" reviews ratings ${ECOMMERCE_SITES}`,
     },
     youtube: {
       productName,
@@ -141,7 +145,7 @@ function buildFallbackQueries(target: SearchTarget): string[] {
     return [
       `"${simplified}" customer reviews ${ECOMMERCE_SITES}`,
       `${simplified} ratings ${ECOMMERCE_SITES}`,
-      `${simplified} site:amazon.in OR site:flipkart.com`,
+      `${simplified} site:amazon.in OR site:flipkart.com OR site:myntra.com OR site:ajio.com`,
     ];
   }
 
@@ -210,7 +214,7 @@ function isReviewLikeHit(
 }
 
 function isPreferredEcommerceDomain(url: string): boolean {
-  return /(amazon\.in|flipkart\.com)/i.test(url);
+  return /(amazon\.in|flipkart\.com|myntra\.com|ajio\.com)/i.test(url);
 }
 
 function detectSite(url: string): EcommerceOverview["site"] {

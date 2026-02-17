@@ -38,7 +38,7 @@ export function AudioPlayer({ audioUrl, durationSeconds, onPlay }: AudioPlayerPr
 
   return (
     <section
-      className="rounded-2xl border border-[var(--glass-border)] bg-[var(--bg-surface)] transition-all duration-300"
+      className="relative rounded-2xl border border-[var(--glass-border)] bg-[var(--bg-surface)] transition-all duration-300"
       aria-label="Audio summary"
     >
       <div className="flex items-center gap-4 p-4">
@@ -84,7 +84,7 @@ export function AudioPlayer({ audioUrl, durationSeconds, onPlay }: AudioPlayerPr
         </div>
       </div>
 
-      {player.isLoading ? (
+      {player.isLoading && !player.isPlaying ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-[var(--bg-surface)]/80">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--fg-faint)]/20 border-t-[var(--accent)]" />
         </div>

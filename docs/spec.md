@@ -6,7 +6,7 @@
 
 ## 1. Executive Summary
 
-India's next 500M internet users are voice-first. Before buying products, they watch YouTube reviews -- mostly in Hindi/English. Someone in Odisha or Assam is out of luck. SunkeLo solves this by letting users ask about any product via voice in any supported Indian language, scraping/aggregating reviews from blogs, e-commerce, and YouTube, synthesizing a balanced opinion via Sarvam-M, and delivering the summary as audio + text in the user's language.
+India's next 500M internet users are voice-first. Before buying products — phones, books, kitchenware, fashion — they watch YouTube reviews, mostly in Hindi/English. Someone in Odisha or Assam is out of luck. SunkeLo solves this by letting users ask about any consumer product via voice in any supported Indian language, scraping/aggregating reviews from blogs, e-commerce, and YouTube, synthesizing a balanced opinion via Sarvam-M, generating a conversational audio summary via Gemini 2.0 Flash, and delivering the result as audio + text in the user's language.
 
 ### Implementation Status (Current)
 
@@ -16,8 +16,9 @@ India's next 500M internet users are voice-first. Before buying products, they w
 - ✅ Sprint 4 completed: Firecrawl client/scraper/parsers, Mayura translation wrapper + chunking, source normalization to English, `/api/sources` endpoint, optional Firecrawl contract smoke test
 - ✅ Sprint 5 completed: review synthesis pipeline, structured ReviewCard UI, DB persistence, NO_REVIEWS flow, strict user-review evidence gate
 - ✅ Sprint 6 completed: TTS wrapper (Bulbul v3), Vercel Blob storage, localization pipeline (translate + TTS), useAudioPlayer hook, AudioPlayer component, localized error messages
-- ✅ Sprint 7 completed: review cache, localized cache, alias cache, retry with exponential backoff, async query logging, latency optimizations
-- ⏳ Sprint 8+ in planned state and are tracked in `docs/sprints.md`
+- ⚠️ Sprint 7 partial: SERVICE_UNAVAILABLE error path implemented. Review/alias/localized caches, retry with backoff, async query logging, quota UI still pending.
+- ✅ Post-sprint enhancements: Gemini 2.0 Flash audio script generation, multi-language audio, broadened product search (all consumer categories), expanded source aggregation (13 blog + 4 ecommerce domains)
+- ⏳ Sprint 7 completion + Sprint 8+ in planned state, tracked in `docs/sprints.md`
 
 ### Core Objectives
 
@@ -53,6 +54,7 @@ India's next 500M internet users are voice-first. Before buying products, they w
 | **Database** | Neon (Serverless Postgres) | Serverless-friendly, scales to zero, branching for dev |
 | **Cache/Rate-limit** | Upstash Redis | Serverless Redis, HTTP-based, Vercel-native integration |
 | **AI/ML** | Sarvam AI (STT, TTS, Translate, Chat) | Best-in-class Indic language support, free tier this month |
+| **AI/ML** | Google Gemini (2.0 Flash) | Conversational audio script generation in user's language |
 | **Scraping** | Firecrawl | Structured web scraping, free tier |
 | **Deployment** | Vercel | Zero-config Next.js hosting, edge functions, analytics |
 | **Analytics** | Vercel Analytics + PostHog (free) | Performance + product analytics |
@@ -75,6 +77,10 @@ graph TB
         LLM[Sarvam-M - Chat Completions]
         TTS[Bulbul v3 - TTS]
         TRANSLATE[Mayura v1 - Translation]
+    end
+
+    subgraph Gemini["Google Gemini"]
+        GFLASH[Gemini 2.0 Flash - Audio Scripts]
     end
 
     subgraph External["External Data Sources"]
@@ -101,6 +107,7 @@ graph TB
     FC --> YT
     API -->|Translate reviews| TRANSLATE
     API -->|Synthesize review| LLM
+    API -->|Audio script| GFLASH
     API -->|Generate audio| TTS
     API -->|Store results| PG
     API -->|Cache results| REDIS
@@ -126,9 +133,10 @@ graph TB
 9. TRANSLATE  → Mayura v1: translate non-English reviews to English (normalization)
 10. SYNTHESIZE → Sarvam-M: generate structured review from all sources
 11. LOCALIZE  → Mayura v1: translate review summary to user's detected language
-12. TTS       → Bulbul v3: generate audio TL;DR (30-45s) in user's language
-13. STREAM    → SSE: progressive updates → text card → audio URL
-14. CACHE SET → Store synthesized review + audio in Redis + Postgres
+12. SCRIPT    → Gemini 2.0 Flash: generate conversational audio script in user's language
+13. TTS       → Bulbul v3: generate audio from script (30-60s) in user's language
+14. STREAM    → SSE: progressive updates → text card → audio URL
+15. CACHE SET → Store synthesized review + audio in Redis + Postgres
 ```
 
 ---
@@ -337,10 +345,11 @@ desitone/
 | Module | Responsibility |
 |---|---|
 | `pipeline/orchestrator.ts` | Coordinates the full STT→Extract→Cache→Scrape→Synthesize→Translate→TTS pipeline. Emits SSE events at each stage. |
-| `pipeline/entity.ts` | Prompts Sarvam-M to extract structured product entity from transcript. Normalizes to slug. Handles aliases. |
+| `pipeline/entity.ts` | Prompts Sarvam-M to extract structured product entity from transcript. Supports all consumer product categories. Normalizes to slug. Handles aliases. |
 | `pipeline/synthesize.ts` | Constructs a review synthesis prompt with all scraped sources. Returns structured JSON (verdict, pros, cons, etc). |
-| `pipeline/localize.ts` | Translates English base review to target language via Mayura. Generates TTS audio via Bulbul v3. |
-| `firecrawl/scraper.ts` | Orchestrates parallel scraping across blog, e-commerce, and YouTube sources. Respects Firecrawl free tier limits. |
+| `pipeline/localize.ts` | Translates English base review to target language via Mayura. Generates conversational audio script via Gemini 2.0 Flash in the user's language. Falls back to template if Gemini unavailable. Generates TTS audio via Bulbul v3. |
+| `gemini/gemini.ts` | Direct REST client for Gemini 2.0 Flash. Generates natural, conversational audio scripts (~150 words) in any supported language. |
+| `firecrawl/scraper.ts` | Orchestrates parallel scraping across 13 blog domains, 4 e-commerce sites, and YouTube sources. Limits: 5 blogs, 4 e-commerce, 3 YouTube (up to 12 sources). |
 | `cache/rate-limit.ts` | Implements sliding-window rate limiting: 5 queries/day per IP hash. Returns remaining quota. |
 | `sarvam/client.ts` | Singleton SarvamAIClient instance with error handling, retries, and timeout config. |
 
@@ -602,14 +611,15 @@ Response: audio binary (WAV/MP3)
 
 **Scrape Priority Order:**
 
-1. **Blog reviews** — GSMArena, 91Mobiles, Smartprix, TechRadar India (structured HTML, high quality)
-2. **E-commerce reviews** — Amazon.in, Flipkart (user reviews, rating distributions)
-3. **YouTube transcripts** — Top 3-5 review videos (extracted via transcript, cheapest)
+1. **Blog reviews** — GSMArena, 91Mobiles, Smartprix, Android Authority, TechRadar, The Verge, CNET, Tom's Guide, NotebookCheck, Gadgets360, Digit, The Wirecutter, Goodreads (up to 5 sources)
+2. **E-commerce reviews** — Amazon.in, Flipkart, Myntra, Ajio (up to 4 sources, user reviews + rating distributions)
+3. **YouTube transcripts** — Top 3 review videos (extracted via transcript, cheapest)
 
 **Firecrawl Search Query Template:**
 
 ```
-"{product_name} review India 2025" site:gsmarena.com OR site:91mobiles.com OR site:smartprix.com
+"{product_name} review" site:gsmarena.com OR site:91mobiles.com OR ... OR site:goodreads.com
+"{product_name} reviews ratings" site:amazon.in OR site:flipkart.com OR site:myntra.com OR site:ajio.com
 ```
 
 **Firecrawl Free Tier Constraints:**
@@ -821,6 +831,9 @@ STRICT_REVIEW_EVIDENCE_MODE=false  # When true, blocks synthesis if user-review 
 STRICT_REVIEW_MIN_ECOMMERCE_SOURCES=2
 STRICT_REVIEW_MIN_SIGNAL_HITS=2
 REVIEW_CACHE_TTL_DAYS=7            # Review cache TTL in days
+
+# Gemini
+GEMINI_API_KEY=                    # Google Gemini API key (required for conversational audio scripts)
 
 # Analytics
 NEXT_PUBLIC_POSTHOG_KEY=           # PostHog project API key

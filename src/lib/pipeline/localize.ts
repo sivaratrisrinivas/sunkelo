@@ -1,4 +1,5 @@
 import { upsertReviewTranslation } from "@/lib/db/reviews";
+import { generateAudioScript } from "@/lib/gemini/gemini";
 import { synthesizeTts, getWavDurationSeconds } from "@/lib/sarvam/tts";
 import { translateLong } from "@/lib/sarvam/translate";
 import { uploadTtsAudio } from "@/lib/storage/audio";
@@ -8,6 +9,7 @@ import { SUPPORTED_LANGUAGES } from "../utils/languages";
 type LocalizeReviewInput = {
   reviewId: number;
   productSlug: string;
+  productName: string;
   review: SynthesizedReview;
   languageCode: string;
 };
@@ -42,9 +44,28 @@ function buildSpeechFriendlyReviewText(review: SynthesizedReview): string {
     .trim();
 }
 
+async function getAudioScript(review: SynthesizedReview, productName: string, languageCode: string): Promise<{ script: string; isTargetLanguage: boolean }> {
+  try {
+    const script = await generateAudioScript({ review, productName, languageCode });
+    console.info("[localize] gemini audio script generated", {
+      productName,
+      languageCode,
+      scriptLength: script.length,
+    });
+    return { script, isTargetLanguage: true };
+  } catch (error) {
+    console.warn("[localize] gemini audio script failed, using template fallback", {
+      productName,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { script: buildSpeechFriendlyReviewText(review), isTargetLanguage: false };
+  }
+}
+
 export async function localizeReview({
   reviewId,
   productSlug,
+  productName,
   review,
   languageCode,
 }: LocalizeReviewInput): Promise<LocalizedReviewResult> {
@@ -53,30 +74,51 @@ export async function localizeReview({
 
   const [localizedSummary, localizedTldr] = needsTranslation
     ? await Promise.all([
-        translateLong(review.summary, {
-          sourceLanguageCode: "en-IN",
-          targetLanguageCode: targetLanguage,
-        }),
-        translateLong(review.tldr, {
-          sourceLanguageCode: "en-IN",
-          targetLanguageCode: targetLanguage,
-        }),
-      ])
+      translateLong(review.summary, {
+        sourceLanguageCode: "en-IN",
+        targetLanguageCode: targetLanguage,
+      }),
+      translateLong(review.tldr, {
+        sourceLanguageCode: "en-IN",
+        targetLanguageCode: targetLanguage,
+      }),
+    ])
     : [review.summary, review.tldr];
 
   const ttsLanguageCode = BULBUL_SUPPORTED_LANGUAGE_CODES.has(targetLanguage) ? targetLanguage : "en-IN";
-  const speechScript = buildSpeechFriendlyReviewText({
+
+  const localizedReview: SynthesizedReview = {
     ...review,
     summary: localizedSummary,
     tldr: localizedTldr,
+  };
+
+  console.info("[localize] start", {
+    productName,
+    targetLanguage,
+    needsTranslation,
+    ttsLanguageCode,
   });
-  const ttsInputText =
-    ttsLanguageCode === targetLanguage
-      ? speechScript
-      : await translateLong(speechScript, {
-          sourceLanguageCode: targetLanguage,
-          targetLanguageCode: "en-IN",
-        });
+
+  // Generate conversational audio script via Gemini (falls back to template)
+  const { script: speechScript, isTargetLanguage: geminiProducedTargetLang } = await getAudioScript(localizedReview, productName, ttsLanguageCode);
+
+  // If Gemini produced text in the target language, use it directly.
+  // Otherwise (template fallback), translate if TTS language differs.
+  let ttsInputText: string;
+  if (geminiProducedTargetLang) {
+    ttsInputText = speechScript;
+    console.info("[localize] using gemini script directly for TTS", { ttsLanguageCode });
+  } else if (ttsLanguageCode !== targetLanguage) {
+    ttsInputText = await translateLong(speechScript, {
+      sourceLanguageCode: targetLanguage,
+      targetLanguageCode: "en-IN",
+    });
+    console.info("[localize] translated template fallback to TTS language", { ttsLanguageCode });
+  } else {
+    ttsInputText = speechScript;
+    console.info("[localize] using template fallback directly for TTS", { ttsLanguageCode });
+  }
 
   const ttsAudio = await synthesizeTts({
     text: ttsInputText,
@@ -105,11 +147,7 @@ export async function localizeReview({
   }
 
   return {
-    review: {
-      ...review,
-      summary: localizedSummary,
-      tldr: localizedTldr,
-    },
+    review: localizedReview,
     languageCode: targetLanguage,
     ttsLanguageCode,
     audioUrl,

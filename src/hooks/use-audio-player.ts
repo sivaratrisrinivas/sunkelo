@@ -84,13 +84,11 @@ export function useAudioPlayer(src: string | null): AudioPlayerState {
     const audio = audioRef.current;
     if (!audio) return;
     setError(null);
-    setIsLoading(true);
     try {
       await audio.play();
     } catch (playError) {
       setError(playError instanceof Error ? playError.message : "Failed to play audio");
       setIsPlaying(false);
-      setIsLoading(false);
     }
   }, []);
 

@@ -5,6 +5,7 @@ const mockSynthesizeTts = vi.fn();
 const mockUploadTtsAudio = vi.fn();
 const mockUpsertReviewTranslation = vi.fn();
 const mockGetWavDurationSeconds = vi.fn();
+const mockGenerateAudioScript = vi.fn();
 
 vi.mock("@/lib/sarvam/translate", () => ({
   translateLong: (...args: unknown[]) => mockTranslateLong(...args),
@@ -21,6 +22,10 @@ vi.mock("@/lib/storage/audio", () => ({
 
 vi.mock("@/lib/db/reviews", () => ({
   upsertReviewTranslation: (...args: unknown[]) => mockUpsertReviewTranslation(...args),
+}));
+
+vi.mock("@/lib/gemini/gemini", () => ({
+  generateAudioScript: (...args: unknown[]) => mockGenerateAudioScript(...args),
 }));
 
 import { localizeReview } from "./localize";
@@ -43,6 +48,7 @@ describe("localizeReview", () => {
     mockSynthesizeTts.mockResolvedValue(Buffer.from("RIFF"));
     mockUploadTtsAudio.mockResolvedValue("https://blob.example/audio.wav");
     mockGetWavDurationSeconds.mockReturnValue(2.5);
+    mockGenerateAudioScript.mockImplementation(async ({ review }: { review: { summary: string }; languageCode: string }) => review.summary);
   });
 
   it("translates summary and tldr for non-English query and stores translation", async () => {
@@ -52,6 +58,7 @@ describe("localizeReview", () => {
     const result = await localizeReview({
       reviewId: 10,
       productSlug: "redmi-note-15",
+      productName: "Redmi Note 15",
       review: baseReview,
       languageCode: "od-IN",
     });
@@ -74,6 +81,7 @@ describe("localizeReview", () => {
     const result = await localizeReview({
       reviewId: 11,
       productSlug: "iphone-16",
+      productName: "iPhone 16",
       review: baseReview,
       languageCode: "en-IN",
     });
@@ -93,20 +101,25 @@ describe("localizeReview", () => {
   it("falls back to English TTS for languages outside Bulbul support", async () => {
     mockTranslateLong.mockResolvedValueOnce("اردو سمری");
     mockTranslateLong.mockResolvedValueOnce("اردو TLDR");
-    mockTranslateLong.mockResolvedValueOnce("English fallback TLDR");
+    // Gemini generates in en-IN directly (ttsLanguageCode) so no translation step needed
+    mockGenerateAudioScript.mockResolvedValueOnce("English audio script from Gemini");
 
     const result = await localizeReview({
       reviewId: 12,
       productSlug: "nothing-phone-3",
+      productName: "Nothing Phone 3",
       review: baseReview,
       languageCode: "ur-IN",
     });
 
     expect(result.languageCode).toBe("ur-IN");
     expect(result.ttsLanguageCode).toBe("en-IN");
+    expect(mockGenerateAudioScript).toHaveBeenCalledWith(
+      expect.objectContaining({ languageCode: "en-IN" }),
+    );
     expect(mockSynthesizeTts).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: expect.stringContaining("English fallback TLDR"),
+        text: "English audio script from Gemini",
         languageCode: "en-IN",
       }),
     );
@@ -118,6 +131,7 @@ describe("localizeReview", () => {
     const result = await localizeReview({
       reviewId: 13,
       productSlug: "pixel-9",
+      productName: "Pixel 9",
       review: baseReview,
       languageCode: "en-IN",
     });

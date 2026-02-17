@@ -251,7 +251,7 @@ export function ReviewCard({ data, loading = false }: ReviewCardProps) {
               href={source.url}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-[var(--fg-faint)] transition-colors hover:text-[var(--accent)]"
+              className="text-xs text-[var(--accent)] underline underline-offset-2 transition-colors hover:text-[var(--fg)]"
             >
               {source.title}
             </a>

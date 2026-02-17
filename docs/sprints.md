@@ -14,7 +14,8 @@
 | Sprint 4    | ✅ Done    | Firecrawl client/scraper/parsers, Mayura translation wrapper/chunking, source normalization, `/api/sources`, optional contract smoke test, any-product intent support, explicit done-state UI |
 | Sprint 5    | ✅ Done    | Review synthesis + ReviewCard + persistence + NO_REVIEWS handling + strict user-review evidence gate                                                                                          |
 | Sprint 6    | ✅ Done    | Translation + TTS + Audio Playback - TTS wrapper, Vercel Blob storage, localization pipeline, useAudioPlayer hook, AudioPlayer component, localized error messages                            |
-| Sprint 7    | ✅ Done    | Caching Layer & Performance - review cache, localized cache, alias cache, retry with exponential backoff, async query logging                                                                 |
+| Sprint 7    | ⚠️ Partial | Only 7.8 (SERVICE_UNAVAILABLE error path) implemented. Review/alias/localized caches, retry with backoff, async query logging, quota UI, latency tests still pending.          |
+| Sprint 6.5  | ✅ Done    | Post-sprint enhancements: Gemini 2.0 Flash audio scripts (multi-language), broadened product search (all consumer categories), expanded source aggregation (13+4 domains), UI fixes |
 | Sprint 8-10 | ⏳ Pending | Planned and tracked below                                                                                                                                                                     |
 
 ---
@@ -168,9 +169,28 @@
 
 ---
 
-## Sprint 7: Caching Layer & Performance
+## Sprint 6.5: Gemini Audio, Broad Product Search & UI Fixes
 
 **Status:** ✅ Done
+
+**Sprint Goal:** Natural, conversational audio summaries in the user's language. Support for any consumer product type. Broader source aggregation.
+
+| ID    | Task                                                                                                                                                               | Status |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 6.5.1 | Gemini 2.0 Flash integration (`src/lib/gemini/gemini.ts`) — direct REST client for conversational audio script generation in user's language                        | ✅     |
+| 6.5.2 | Update localization pipeline (`localize.ts`) — Gemini generates audio script in TTS language, template fallback if Gemini unavailable, pass `languageCode` through  | ✅     |
+| 6.5.3 | Broaden entity extraction prompt (`entity.ts`) — support all consumer product categories (books, kitchenware, fashion, beauty, sports, etc.)                        | ✅     |
+| 6.5.4 | Expand source aggregation (`scraper.ts`) — 13 blog domains, 4 e-commerce sites, limits raised to 5/4/3 (up to 12 sources)                                          | ✅     |
+| 6.5.5 | Fix audio player spinner (`use-audio-player.ts`, `audio-player.tsx`) — remove race condition, show spinner only when buffering and not playing                       | ✅     |
+| 6.5.6 | Suppress Next.js dev indicator (`next.config.ts`)                                                                                                                   | ✅     |
+| 6.5.7 | Make source links clickable (`review-card.tsx`) — accent color + underline instead of faint gray                                                                    | ✅     |
+| 6.5.8 | Add pipeline logging — `[gemini]`, `[localize]` tagged console.info/error throughout audio pipeline                                                                 | ✅     |
+
+---
+
+## Sprint 7: Caching Layer & Performance
+
+**Status:** ⚠️ Partial (only 7.8 done)
 
 **Sprint Goal:** Cached responses served in <8s. Second query for same product skips scraping entirely. Localized caches per language.
 

@@ -243,6 +243,7 @@ export async function POST(request: NextRequest) {
         const localized = await localizeReview({
           reviewId: reviewId ?? 0,
           productSlug: canonicalSlug,
+          productName: productLabel,
           review,
           languageCode: language || "en-IN",
         });
