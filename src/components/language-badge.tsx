@@ -10,7 +10,7 @@ export function LanguageBadge({ languageCode }: LanguageBadgeProps) {
   const text = display === script ? display : `${display} · ${script}`;
 
   return (
-    <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-[10px] font-semibold text-rose-500 transition-all hover:bg-rose-100">
+    <span className="inline-flex items-center rounded-full border border-[var(--accent)]/20 bg-[var(--accent)]/5 px-3 py-1 text-[10px] font-medium tracking-wide text-[var(--accent-soft)]">
       {text}
     </span>
   );

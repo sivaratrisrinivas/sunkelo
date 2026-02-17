@@ -38,7 +38,7 @@ export function AudioPlayer({ audioUrl, durationSeconds, onPlay }: AudioPlayerPr
 
   return (
     <section
-      className="glass relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
+      className="rounded-2xl border border-[var(--glass-border)] bg-[var(--bg-surface)] transition-all duration-300"
       aria-label="Audio summary"
     >
       <div className="flex items-center gap-4 p-4">
@@ -50,38 +50,34 @@ export function AudioPlayer({ audioUrl, durationSeconds, onPlay }: AudioPlayerPr
             }
             await player.toggle();
           }}
-          className="group flex h-14 w-14 items-center justify-center rounded-full bg-rose-500 shadow-md transition-all duration-300 hover:bg-rose-600 hover:shadow-lg active:scale-95 disabled:opacity-50"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] transition-all duration-300 hover:brightness-110 active:scale-95 disabled:opacity-30"
           aria-label={player.isPlaying ? "Pause audio summary" : "Play audio summary"}
           disabled={!audioUrl}
         >
           {player.isPlaying ? (
-            <div className="flex gap-1 items-end h-5">
-              <div className="w-1 bg-white rounded-full animate-pulse" />
-              <div className="w-1 bg-white rounded-full animate-pulse [animation-delay:0.1s]" />
-              <div className="w-1 bg-white rounded-full animate-pulse [animation-delay:0.2s]" />
+            <div className="flex gap-0.5 items-end h-4">
+              <div className="w-[3px] h-full bg-white rounded-full animate-wave-1 origin-bottom" />
+              <div className="w-[3px] h-full bg-white rounded-full animate-wave-2 origin-bottom" />
+              <div className="w-[3px] h-full bg-white rounded-full animate-wave-3 origin-bottom" />
             </div>
           ) : (
-            <svg
-              className="ml-0.5 h-6 w-6 text-white transition-transform duration-300 group-hover:scale-110"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="ml-0.5 h-5 w-5 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
         </button>
 
         <div className="flex-1 space-y-2">
-          <div className="flex items-center justify-between text-xs font-medium">
-            <span className="text-gray-500">Audio Summary</span>
-            <span className="text-gray-400">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[var(--fg-faint)]">Audio Summary</span>
+            <span className="text-[var(--fg-faint)] tabular-nums">
               {formatDuration(player.currentTime)} / {formatDuration(effectiveDuration)}
             </span>
           </div>
 
-          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+          <div className="relative h-1 w-full overflow-hidden rounded-full bg-[var(--fg-faint)]/10">
             <div
-              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-rose-400 to-rose-500 transition-all duration-100"
+              className="absolute inset-y-0 left-0 rounded-full bg-[var(--accent)] transition-all duration-100"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -89,13 +85,13 @@ export function AudioPlayer({ audioUrl, durationSeconds, onPlay }: AudioPlayerPr
       </div>
 
       {player.isLoading ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/75">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-rose-200 border-t-rose-500" />
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-[var(--bg-surface)]/80">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--fg-faint)]/20 border-t-[var(--accent)]" />
         </div>
       ) : null}
 
       {player.error ? (
-        <div className="px-4 pb-3 text-center text-xs text-red-500">{player.error}</div>
+        <div className="px-4 pb-3 text-center text-xs text-[var(--color-skip)]">{player.error}</div>
       ) : null}
     </section>
   );

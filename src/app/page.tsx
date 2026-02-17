@@ -4,26 +4,24 @@ import { VoiceInput } from "@/components/voice-input";
 
 export default function Home() {
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12 sm:px-6 lg:px-8">
+    <main className="relative flex min-h-screen flex-col items-center justify-center px-5 py-16">
       <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-1/2 top-0 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-gradient-to-b from-rose-100 to-transparent blur-3xl opacity-60" />
-        <div className="absolute right-10 bottom-20 w-[300px] h-[200px] rounded-full bg-gradient-to-t from-coral-100 to-transparent blur-3xl opacity-40" />
+        <div className="absolute left-1/2 top-0 -translate-x-1/2 w-[500px] h-[350px] rounded-full bg-[var(--accent)] opacity-[0.04] blur-[120px]" />
       </div>
 
-      <div className="z-10 mx-auto flex w-full max-w-2xl flex-col items-center gap-14 text-center">
-        <div className="space-y-6">
-          <h1 className="text-5xl font-semibold tracking-tight text-gray-900 sm:text-6xl md:text-7xl animate-fade-up [animation-delay:100ms]">
-            Sunke<span className="text-rose-500">Lo</span>
+      <div className="z-10 mx-auto flex w-full max-w-xl flex-col items-center gap-16 text-center">
+        <div className="space-y-4 animate-slide-up">
+          <h1 className="text-6xl font-bold tracking-tight sm:text-7xl md:text-8xl">
+            <span className="text-[var(--fg)]">Sunke</span>
+            <span className="text-[var(--accent)]">Lo</span>
           </h1>
-          <p className="mx-auto max-w-md text-lg text-gray-500 sm:text-xl leading-relaxed animate-fade-up [animation-delay:200ms]">
-            Ask about any product.
-            <br className="hidden sm:block" />
-            <span className="text-gray-700">Get a spoken verdict in your language.</span>
+          <p className="text-[var(--fg-muted)] text-base sm:text-lg tracking-wide">
+            Ask about any product. Get a spoken verdict in your language.
           </p>
         </div>
 
-        <div className="w-full animate-fade-up [animation-delay:400ms]">
-          <VoiceInput onTranscript={() => {}} />
+        <div className="w-full animate-slide-up [animation-delay:150ms] opacity-0">
+          <VoiceInput onTranscript={() => { }} />
         </div>
       </div>
     </main>

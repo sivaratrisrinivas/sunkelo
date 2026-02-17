@@ -44,16 +44,16 @@ type ReviewCardProps = {
   loading?: boolean;
 };
 
-const verdictStyles: Record<Verdict, string> = {
-  buy: "bg-[#00a680]/10 text-[#00a680] border-[#00a680]/20",
-  skip: "bg-[#ff5a5f]/10 text-[#ff5a5f] border-[#ff5a5f]/20",
-  wait: "bg-[#ffb400]/10 text-[#ffb400] border-[#ffb400]/20",
+const verdictColor: Record<Verdict, string> = {
+  buy: "text-[var(--color-buy)]",
+  skip: "text-[var(--color-skip)]",
+  wait: "text-[var(--color-wait)]",
 };
 
-const verdictGlow: Record<Verdict, string> = {
-  buy: "from-green-50 to-transparent",
-  skip: "from-red-50 to-transparent",
-  wait: "from-yellow-50 to-transparent",
+const verdictDot: Record<Verdict, string> = {
+  buy: "bg-[var(--color-buy)]",
+  skip: "bg-[var(--color-skip)]",
+  wait: "bg-[var(--color-wait)]",
 };
 
 function verdictLabel(verdict: Verdict): string {
@@ -67,23 +67,23 @@ function clampPercent(value: number): number {
 }
 
 function SkeletonLine({ className }: { className: string }) {
-  return <div className={`shimmer rounded-lg ${className}`} />;
+  return <div className={`shimmer rounded-lg bg-[var(--fg-faint)]/10 ${className}`} />;
 }
 
 export function ReviewCard({ data, loading = false }: ReviewCardProps) {
   if (loading) {
     return (
-      <section role="status" aria-live="polite" className="glass rounded-3xl p-8 shadow-lg">
-        <div className="flex justify-between items-start mb-8">
-          <SkeletonLine className="h-10 w-36 rounded-full" />
-          <SkeletonLine className="h-10 w-24 rounded-lg" />
+      <section role="status" aria-live="polite" className="rounded-2xl border border-[var(--glass-border)] bg-[var(--bg-surface)] p-6 sm:p-8">
+        <div className="flex justify-between items-center mb-8">
+          <SkeletonLine className="h-8 w-32" />
+          <SkeletonLine className="h-4 w-20" />
         </div>
-        <SkeletonLine className="h-28 w-full rounded-2xl mb-8" />
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 mb-8">
-          <SkeletonLine className="h-40 w-full rounded-2xl" />
-          <SkeletonLine className="h-40 w-full rounded-2xl" />
+        <SkeletonLine className="h-20 w-full rounded-xl mb-6" />
+        <div className="grid grid-cols-2 gap-6 mb-6">
+          <SkeletonLine className="h-28 w-full rounded-xl" />
+          <SkeletonLine className="h-28 w-full rounded-xl" />
         </div>
-        <SkeletonLine className="h-14 w-full rounded-xl" />
+        <SkeletonLine className="h-10 w-full rounded-lg" />
       </section>
     );
   }
@@ -109,77 +109,53 @@ export function ReviewCard({ data, loading = false }: ReviewCardProps) {
   );
   const hasSentiment =
     aggregatedSentiment.positive +
-      aggregatedSentiment.negative +
-      aggregatedSentiment.neutral +
-      aggregatedSentiment.mixed >
+    aggregatedSentiment.negative +
+    aggregatedSentiment.neutral +
+    aggregatedSentiment.mixed >
     0;
 
   return (
-    <section className="glass overflow-hidden rounded-3xl p-6 sm:p-8 shadow-lg transition-all duration-300 hover:shadow-xl">
-      <div
-        className={`absolute inset-0 bg-gradient-to-br ${verdictGlow[data.verdict]} opacity-30 pointer-events-none`}
-      />
-
-      <div className="relative mb-8 flex flex-wrap items-center justify-between gap-4">
-        <span
-          className={`inline-flex items-center rounded-full border px-5 py-2 text-sm font-semibold ${verdictStyles[data.verdict]}`}
-        >
-          {verdictLabel(data.verdict)}
-        </span>
-
+    <section className="rounded-2xl border border-[var(--glass-border)] bg-[var(--bg-surface)] p-6 sm:p-8 transition-all duration-300">
+      {/* Verdict + Confidence */}
+      <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-medium text-gray-400">Confidence</span>
-          <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-gray-100">
-            <div
-              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#00a680] to-[#00d68f] transition-all duration-1000"
-              style={{ width: `${confidencePercent}%` }}
-            />
-          </div>
-          <span className="text-xs font-medium text-gray-500">{confidencePercent}%</span>
+          <div className={`h-2.5 w-2.5 rounded-full ${verdictDot[data.verdict]}`} />
+          <span className={`text-lg font-bold tracking-tight ${verdictColor[data.verdict]}`}>
+            {verdictLabel(data.verdict)}
+          </span>
         </div>
+        <span className="text-xs text-[var(--fg-faint)]">{confidencePercent}% confidence</span>
       </div>
 
-      <div className="relative mb-8">
-        <p className="text-xl leading-relaxed text-gray-700">{data.summary}</p>
-      </div>
+      {/* Summary */}
+      <p className="mb-8 text-base leading-relaxed text-[var(--fg)] sm:text-lg">
+        {data.summary}
+      </p>
 
-      <div className="relative mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div className="space-y-4 rounded-2xl bg-green-50 p-5 border border-green-100">
-          <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-green-600">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+      {/* Pros & Cons */}
+      <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--color-buy)]">
             Pros
           </h3>
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {data.pros.map((pro) => (
-              <li key={pro} className="text-sm text-gray-600 leading-relaxed">
+              <li key={pro} className="flex gap-2 text-sm text-[var(--fg-muted)]">
+                <span className="text-[var(--color-buy)] shrink-0">+</span>
                 {pro}
               </li>
             ))}
           </ul>
         </div>
 
-        <div className="space-y-4 rounded-2xl bg-red-50 p-5 border border-red-100">
-          <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-red-500">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--color-skip)]">
             Cons
           </h3>
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {data.cons.map((con) => (
-              <li key={con} className="text-sm text-gray-600 leading-relaxed">
+              <li key={con} className="flex gap-2 text-sm text-[var(--fg-muted)]">
+                <span className="text-[var(--color-skip)] shrink-0">−</span>
                 {con}
               </li>
             ))}
@@ -187,62 +163,64 @@ export function ReviewCard({ data, loading = false }: ReviewCardProps) {
         </div>
       </div>
 
-      <div className="relative mb-8 rounded-2xl border border-gray-100 bg-gray-50 p-5">
-        <p className="text-sm text-gray-600">
-          <span className="font-semibold text-gray-800 uppercase tracking-wide text-xs mr-2">
+      {/* Best for */}
+      <div className="mb-8 rounded-xl bg-[var(--glass-bg)] border border-[var(--glass-border)] px-5 py-3">
+        <p className="text-sm text-[var(--fg-muted)]">
+          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--fg-faint)] mr-2">
             Best for
           </span>
           {data.bestFor}
         </p>
       </div>
 
+      {/* Ecommerce overview */}
       {ecommerceOverview ? (
-        <div className="relative mb-8 rounded-2xl border border-blue-100 bg-blue-50 p-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">User Review Snapshot</p>
-            <p className="text-xs text-blue-600">
+        <div className="mb-8 rounded-xl bg-[var(--glass-bg)] border border-[var(--glass-border)] p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--fg-faint)]">User Review Snapshot</p>
+            <p className="text-[10px] text-[var(--fg-faint)]">
               {(ecommerceOverview.site ?? "unknown").toUpperCase()}
               {typeof ecommerceOverview.overallRating === "number"
-                ? ` • ${ecommerceOverview.overallRating}/5`
+                ? ` · ${ecommerceOverview.overallRating}/5`
                 : ""}
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-2 text-sm text-gray-700 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-1.5 text-sm text-[var(--fg-muted)] sm:grid-cols-2">
             <p>
-              <span className="font-semibold text-gray-800">Product:</span>{" "}
+              <span className="text-[var(--fg)]">Product:</span>{" "}
               {ecommerceOverview.productTitle ?? "Not captured"}
             </p>
             <p>
-              <span className="font-semibold text-gray-800">Price:</span>{" "}
+              <span className="text-[var(--fg)]">Price:</span>{" "}
               {ecommerceOverview.price
                 ? `${ecommerceOverview.price}${ecommerceOverview.currency ? ` (${ecommerceOverview.currency})` : ""}`
                 : "Not captured"}
             </p>
             <p>
-              <span className="font-semibold text-gray-800">Ratings:</span>{" "}
+              <span className="text-[var(--fg)]">Ratings:</span>{" "}
               {typeof ecommerceOverview.ratingsCount === "number"
                 ? ecommerceOverview.ratingsCount.toLocaleString()
                 : "Not captured"}
             </p>
             <p>
-              <span className="font-semibold text-gray-800">Reviews:</span>{" "}
+              <span className="text-[var(--fg)]">Reviews:</span>{" "}
               {typeof ecommerceOverview.reviewsCount === "number"
                 ? ecommerceOverview.reviewsCount.toLocaleString()
                 : ecommerceOverview.reviewSampleCount ?? "Not captured"}
             </p>
             <p>
-              <span className="font-semibold text-gray-800">Sampled Reviews:</span>{" "}
+              <span className="text-[var(--fg)]">Sampled Reviews:</span>{" "}
               {ecommerceOverview.reviewSampleCount ?? 0}
             </p>
             <p>
-              <span className="font-semibold text-gray-800">Avg Sample Rating:</span>{" "}
+              <span className="text-[var(--fg)]">Avg Sample Rating:</span>{" "}
               {typeof ecommerceOverview.averageReviewRating === "number"
                 ? `${ecommerceOverview.averageReviewRating}/5`
                 : "Not captured"}
             </p>
           </div>
           {hasSentiment ? (
-            <p className="mt-3 text-xs text-blue-700">
+            <p className="mt-3 text-[10px] text-[var(--fg-faint)]">
               Sentiment mix: +{aggregatedSentiment.positive} / -{aggregatedSentiment.negative} / neutral{" "}
               {aggregatedSentiment.neutral} / mixed {aggregatedSentiment.mixed}
             </p>
@@ -250,14 +228,14 @@ export function ReviewCard({ data, loading = false }: ReviewCardProps) {
         </div>
       ) : null}
 
-      <div className="space-y-4 border-t border-gray-100 pt-6">
+      {/* Sources */}
+      <div className="space-y-3 border-t border-[var(--glass-border)] pt-6">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Sources</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--fg-faint)]">Sources</p>
           {data.reviewEvidence ? (
             <span
-              className={`text-[10px] font-medium uppercase tracking-wider ${
-                data.reviewEvidence.hasUserReviewEvidence ? "text-green-500" : "text-yellow-500"
-              }`}
+              className={`text-[10px] tracking-wide ${data.reviewEvidence.hasUserReviewEvidence ? "text-[var(--color-buy)]" : "text-[var(--color-wait)]"
+                }`}
             >
               {data.reviewEvidence.hasUserReviewEvidence
                 ? "✓ Verified User Reviews"
@@ -266,29 +244,16 @@ export function ReviewCard({ data, loading = false }: ReviewCardProps) {
           ) : null}
         </div>
 
-        <div className="flex flex-wrap gap-x-6 gap-y-2">
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5">
           {data.sources.map((source) => (
             <a
               key={`${source.url}-${source.title}`}
               href={source.url}
               target="_blank"
               rel="noreferrer"
-              className="group flex items-center gap-1.5 text-xs text-gray-500 transition-colors hover:text-rose-500"
+              className="text-xs text-[var(--fg-faint)] transition-colors hover:text-[var(--accent)]"
             >
-              <span className="max-w-[180px] truncate">{source.title}</span>
-              <svg
-                className="h-3 w-3 opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-0.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
+              {source.title}
             </a>
           ))}
         </div>
