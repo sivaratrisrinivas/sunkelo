@@ -14,7 +14,7 @@
 | Sprint 4    | ✅ Done    | Firecrawl client/scraper/parsers, Mayura translation wrapper/chunking, source normalization, `/api/sources`, optional contract smoke test, any-product intent support, explicit done-state UI |
 | Sprint 5    | ✅ Done    | Review synthesis + ReviewCard + persistence + NO_REVIEWS handling + strict user-review evidence gate                                                                                          |
 | Sprint 6    | ✅ Done    | Translation + TTS + Audio Playback - TTS wrapper, Vercel Blob storage, localization pipeline, useAudioPlayer hook, AudioPlayer component, localized error messages                            |
-| Sprint 7    | ⚠️ Partial | Only 7.8 (SERVICE_UNAVAILABLE error path) implemented. Review/alias/localized caches, retry with backoff, async query logging, quota UI, latency tests still pending.          |
+| Sprint 7    | ✅ Done    | Caching Layer & Performance - review cache, localized cache, alias cache, retry with exponential backoff, async query logging, quota UI, latency budget test                |
 | Sprint 6.5  | ✅ Done    | Post-sprint enhancements: Gemini 2.0 Flash audio scripts (multi-language), broadened product search (all consumer categories), expanded source aggregation (13+4 domains), UI fixes |
 | Sprint 8-10 | ⏳ Pending | Planned and tracked below                                                                                                                                                                     |
 
@@ -190,7 +190,7 @@
 
 ## Sprint 7: Caching Layer & Performance
 
-**Status:** ⚠️ Partial (only 7.8 done)
+**Status:** ✅ Done
 
 **Sprint Goal:** Cached responses served in <8s. Second query for same product skips scraping entirely. Localized caches per language.
 

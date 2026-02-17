@@ -14,6 +14,11 @@ const mockDetectQueryLanguageCode = vi.fn();
 const mockUpsertProductBySlug = vi.fn();
 const mockCreateReview = vi.fn();
 const mockListTrending = vi.fn();
+const mockGetCachedReview = vi.fn();
+const mockSetCachedReview = vi.fn();
+const mockGetCachedLocalized = vi.fn();
+const mockSetCachedLocalized = vi.fn();
+const mockInsertLog = vi.fn();
 
 vi.mock("@/lib/cache/rate-limit", () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
@@ -59,6 +64,17 @@ vi.mock("@/lib/db/products", () => ({
 
 vi.mock("@/lib/db/reviews", () => ({
   createReview: (...args: unknown[]) => mockCreateReview(...args),
+}));
+
+vi.mock("@/lib/cache/reviews", () => ({
+  getCachedReview: (...args: unknown[]) => mockGetCachedReview(...args),
+  setCachedReview: (...args: unknown[]) => mockSetCachedReview(...args),
+  getCachedLocalized: (...args: unknown[]) => mockGetCachedLocalized(...args),
+  setCachedLocalized: (...args: unknown[]) => mockSetCachedLocalized(...args),
+}));
+
+vi.mock("@/lib/db/query-logs", () => ({
+  insertLog: (...args: unknown[]) => mockInsertLog(...args),
 }));
 
 vi.mock("@/lib/pipeline/orchestrator", () => ({
@@ -178,6 +194,11 @@ describe("POST /api/query sprint 3 flow", () => {
       { brand: "Redmi", model: "Note 15" },
       { brand: "Samsung", model: "Galaxy S24" },
     ]);
+    mockGetCachedReview.mockResolvedValue(null);
+    mockSetCachedReview.mockResolvedValue(undefined);
+    mockGetCachedLocalized.mockResolvedValue(null);
+    mockSetCachedLocalized.mockResolvedValue(undefined);
+    mockInsertLog.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -243,6 +264,58 @@ describe("POST /api/query sprint 3 flow", () => {
     expect(mockUpsertProductBySlug).toHaveBeenCalledOnce();
     expect(mockCreateReview).toHaveBeenCalledOnce();
     expect(mockLocalizeReview).toHaveBeenCalledOnce();
+    // Verify the done event has cached: false on cache miss
+    const doneEvent = events.find((e) => e.type === "done");
+    expect(doneEvent?.data.cached).toBe(false);
+  });
+
+  it("serves from localized cache and skips scrape + localize", async () => {
+    mockDetectQueryLanguageCode.mockResolvedValueOnce("hi-IN");
+    mockExtractIntentAndEntity.mockResolvedValueOnce({
+      intent: "product_review",
+      brand: "Redmi",
+      model: "Note 15",
+      variant: null,
+      slug: "redmi-note-15",
+      productName: "Redmi Note 15",
+    });
+    mockResolveCanonicalSlug.mockResolvedValueOnce("redmi-note-15");
+    mockGetCachedLocalized.mockResolvedValueOnce({
+      review: {
+        verdict: "buy",
+        pros: ["Battery"],
+        cons: ["Camera"],
+        bestFor: "Budget",
+        summary: "Cached localized summary",
+        tldr: "Cached TLDR",
+        confidenceScore: 0.8,
+        sources: [{ title: "R1", url: "https://example.com/1", type: "blog" }],
+      },
+      audioUrl: "https://blob.example/cached.wav",
+      durationSeconds: 10,
+      ttsLanguageCode: "hi-IN",
+    });
+
+    const request = new Request("http://localhost/api/query", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "9.9.9.9" },
+      body: JSON.stringify({ text: "Redmi Note 15 kaisa hai?" }),
+    }) as NextRequest;
+
+    const response = await POST(request);
+    const body = await response.text();
+    const events = parseSSE(body);
+
+    // Should NOT call scrape, synthesize, or localize
+    expect(mockScrapeAllSources).not.toHaveBeenCalled();
+    expect(mockSynthesizeReview).not.toHaveBeenCalled();
+    expect(mockLocalizeReview).not.toHaveBeenCalled();
+
+    const doneEvent = events.find((e) => e.type === "done");
+    expect(doneEvent?.data.cached).toBe(true);
+
+    const reviewEvent = events.find((e) => e.type === "review");
+    expect(reviewEvent?.data.summary).toBe("Cached localized summary");
   });
 
   it("emits NOT_A_PRODUCT error for unsupported intent", async () => {

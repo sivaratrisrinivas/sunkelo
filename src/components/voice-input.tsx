@@ -7,6 +7,7 @@ import { LanguageBadge } from "@/components/language-badge";
 import { ProgressSteps } from "@/components/progress-steps";
 import { ReviewCard, type ReviewCardData } from "@/components/review-card";
 import { AudioPlayer } from "@/components/audio-player";
+import { QuotaBadge } from "@/components/quota-badge";
 
 type VoiceInputProps = {
   onTranscript: (value: string) => void;
@@ -29,6 +30,8 @@ type SSEErrorData = {
 
 type SSEDoneData = {
   sourceCount?: number;
+  remaining?: number;
+  cached?: boolean;
 };
 
 type SSEReviewData = ReviewCardData;
@@ -79,6 +82,7 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
   const [audioData, setAudioData] = useState<SSEAudioData | null>(null);
   const detectedLanguageRef = useRef<string | null>(null);
   const autoSubmittedRef = useRef(false);
+  const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
 
   const isRecording = recorder.state === "recording";
   const isProcessing = recorder.state === "processing" || query.state === "streaming";
@@ -185,7 +189,12 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
     if (event.type === "done") {
       const doneData = event.data as SSEDoneData;
       setProgressStep("done");
-      if (typeof doneData.sourceCount === "number") {
+      if (typeof doneData.remaining === "number") {
+        setQuotaRemaining(doneData.remaining);
+      }
+      if (doneData.cached) {
+        setStatusText("Done · from cache");
+      } else if (typeof doneData.sourceCount === "number") {
         setStatusText(`Done · ${doneData.sourceCount} sources`);
       } else {
         setStatusText("Done");
@@ -227,10 +236,10 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
           type="button"
           aria-label={buttonLabel}
           className={`relative flex h-20 w-20 items-center justify-center rounded-full transition-all duration-500 focus:outline-none ${isRecording
-              ? "bg-[var(--accent)] animate-recording"
-              : isProcessing
-                ? "bg-[var(--bg-surface)] cursor-wait"
-                : "bg-[var(--bg-surface)] border border-[var(--glass-border)] hover:border-[var(--accent)]/30 hover:shadow-[0_0_30px_var(--accent-glow)] active:scale-95"
+            ? "bg-[var(--accent)] animate-recording"
+            : isProcessing
+              ? "bg-[var(--bg-surface)] cursor-wait"
+              : "bg-[var(--bg-surface)] border border-[var(--glass-border)] hover:border-[var(--accent)]/30 hover:shadow-[0_0_30px_var(--accent-glow)] active:scale-95"
             }`}
           onClick={async () => {
             if (isRecording) {
@@ -378,6 +387,13 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
       {audioData?.audioUrl ? (
         <div className="animate-scale-in">
           <AudioPlayer audioUrl={audioData.audioUrl} durationSeconds={audioData.durationSeconds} />
+        </div>
+      ) : null}
+
+      {/* Quota badge */}
+      {typeof quotaRemaining === "number" ? (
+        <div className="flex justify-center animate-scale-in">
+          <QuotaBadge remaining={quotaRemaining} total={5} />
         </div>
       ) : null}
 

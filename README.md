@@ -81,11 +81,10 @@ Completed:
 - **Sprint 4:** Firecrawl client + source scraping/parsing, Mayura translation wrapper/chunking, source normalization pipeline, `/api/sources` endpoint, and Sprint 4 test suite
 - **Sprint 5:** review synthesis pipeline, `ReviewCard` + loading skeleton, review persistence, `NO_REVIEWS` UX, and strict user-review evidence mode
 - **Sprint 6:** translation + TTS + audio playback pipeline, `AudioPlayer` component, localized error messages + Gemini-powered conversational audio scripts
-- **Sprint 7:** partially done — `SERVICE_UNAVAILABLE` error path. Review/alias/localized caches, retry with backoff, async query logging, and quota UI still pending.
+- **Sprint 7:** caching layer (review, localized, alias caches), retry with backoff, async query logging, quota badge UI, latency budget test
 
 Planned next:
 
-- Complete Sprint 7 caching + performance
 - Trending, SEO pages, analytics
 - Production hardening
 

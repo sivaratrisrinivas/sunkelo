@@ -16,9 +16,9 @@ India's next 500M internet users are voice-first. Before buying products — pho
 - ✅ Sprint 4 completed: Firecrawl client/scraper/parsers, Mayura translation wrapper + chunking, source normalization to English, `/api/sources` endpoint, optional Firecrawl contract smoke test
 - ✅ Sprint 5 completed: review synthesis pipeline, structured ReviewCard UI, DB persistence, NO_REVIEWS flow, strict user-review evidence gate
 - ✅ Sprint 6 completed: TTS wrapper (Bulbul v3), Vercel Blob storage, localization pipeline (translate + TTS), useAudioPlayer hook, AudioPlayer component, localized error messages
-- ⚠️ Sprint 7 partial: SERVICE_UNAVAILABLE error path implemented. Review/alias/localized caches, retry with backoff, async query logging, quota UI still pending.
+- ✅ Sprint 7 completed: review/localized/alias caches, retry with backoff, cache-first pipeline, async query logging, quota badge UI, latency budget test
 - ✅ Post-sprint enhancements: Gemini 2.0 Flash audio script generation, multi-language audio, broadened product search (all consumer categories), expanded source aggregation (13 blog + 4 ecommerce domains)
-- ⏳ Sprint 7 completion + Sprint 8+ in planned state, tracked in `docs/sprints.md`
+- ⏳ Sprint 8+ in planned state, tracked in `docs/sprints.md`
 
 ### Core Objectives
 
