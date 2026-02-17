@@ -49,7 +49,7 @@ describe("firecrawl scraper helpers", () => {
     const result = await searchEcommerce("Unknown Phone", client);
     expect(result).toEqual([]);
     expect(client.search).toHaveBeenCalledWith(
-      expect.stringContaining("site:myntra.com OR site:ajio.com"),
+      expect.stringContaining("site:amazon.in OR site:flipkart.com"),
       expect.any(Object),
     );
     expect(client.scrape).not.toHaveBeenCalled();
@@ -109,8 +109,8 @@ describe("firecrawl scraper helpers", () => {
         description: "customer reviews",
       },
       {
-        url: "https://www.ajio.com/product/p/12345/reviews",
-        title: "Ajio reviews",
+        url: "https://www.amazon.in/product-reviews/B0TEST123",
+        title: "Amazon customer reviews",
         description: "buyer reviews",
       },
     ]);
@@ -121,15 +121,32 @@ describe("firecrawl scraper helpers", () => {
         title: "Flipkart ratings and reviews",
       })
       .mockResolvedValueOnce({
-        url: "https://www.ajio.com/product/p/12345/reviews",
-        markdown: "Good fit and quality from customers.",
-        title: "Ajio reviews",
+        url: "https://www.amazon.in/product-reviews/B0TEST123",
+        markdown: "Verified purchase reviews from customers.",
+        title: "Amazon customer reviews",
       });
 
     const result = await searchEcommerce("Apple iPhone 17", client);
     expect(result).toHaveLength(2);
     expect(result[0].url).toContain("flipkart.com");
-    expect(result[1].url).toContain("ajio.com");
+    expect(result[1].url).toContain("amazon.in");
+  });
+
+  it("drops untrusted blog domains", async () => {
+    const client = createMockClient();
+    client.search.mockResolvedValueOnce([
+      { url: "https://randomblog.example/review", title: "Not trusted" },
+      { url: "https://www.gsmarena.com/real-review", title: "Trusted" },
+    ]);
+    client.scrape.mockResolvedValueOnce({
+      url: "https://www.gsmarena.com/real-review",
+      markdown: "Detailed review text",
+      title: "Trusted",
+    });
+
+    const result = await searchBlogs("Pixel 9", client);
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toContain("gsmarena.com");
   });
 });
 

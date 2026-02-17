@@ -18,11 +18,26 @@ type SearchTarget = {
 };
 
 const BLOG_SITES = "site:gsmarena.com OR site:91mobiles.com OR site:smartprix.com";
-const ECOMMERCE_SITES =
-  "site:amazon.in OR site:flipkart.com OR site:myntra.com OR site:ajio.com";
+const ECOMMERCE_SITES = "site:amazon.in OR site:flipkart.com";
 const YOUTUBE_SITE = "site:youtube.com";
 const ECOMMERCE_REVIEW_URL_HINT =
   /(review|ratings|rating|product-reviews|customer-reviews|user-reviews|opinions|reviews)/i;
+
+const TRUSTED_BLOG_DOMAINS = [
+  "gsmarena.com",
+  "91mobiles.com",
+  "smartprix.com",
+  "androidauthority.com",
+  "techradar.com",
+  "theverge.com",
+  "cnet.com",
+  "tomsguide.com",
+  "notebookcheck.net",
+] as const;
+
+const TRUSTED_ECOMMERCE_DOMAINS = ["amazon.in", "flipkart.com"] as const;
+
+const TRUSTED_YOUTUBE_HOSTS = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"] as const;
 
 function buildTargets(productName: string): Record<ScrapedSourceType, SearchTarget> {
   return {
@@ -84,6 +99,34 @@ function dedupeHits<T extends { url: string }>(hits: T[]): T[] {
   return out;
 }
 
+function hostFromUrl(input: string): string | null {
+  try {
+    return new URL(input).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function hasTrustedDomain(hostname: string, trustedDomains: readonly string[]): boolean {
+  return trustedDomains.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+}
+
+function isTrustedHit(
+  hit: { url: string },
+  type: ScrapedSourceType,
+): boolean {
+  const host = hostFromUrl(hit.url);
+  if (!host) return false;
+
+  if (type === "blog") {
+    return hasTrustedDomain(host, TRUSTED_BLOG_DOMAINS);
+  }
+  if (type === "ecommerce") {
+    return hasTrustedDomain(host, TRUSTED_ECOMMERCE_DOMAINS);
+  }
+  return hasTrustedDomain(host, TRUSTED_YOUTUBE_HOSTS);
+}
+
 function isReviewLikeHit(
   hit: { url: string; title?: string; description?: string },
   type: ScrapedSourceType,
@@ -103,7 +146,7 @@ function isReviewLikeHit(
 }
 
 function isPreferredEcommerceDomain(url: string): boolean {
-  return /(amazon\.in|flipkart\.com|myntra\.com|ajio\.com)/i.test(url);
+  return /(amazon\.in|flipkart\.com)/i.test(url);
 }
 
 async function searchAndScrapeTarget(
@@ -126,26 +169,28 @@ async function searchAndScrapeTarget(
     hits = dedupeHits(fallbackHits);
   }
 
-  if (!hits.length) {
+  const trustedHits = hits.filter((hit) => isTrustedHit(hit, target.type));
+
+  if (!trustedHits.length) {
     return [];
   }
 
-  let selectedHits = hits;
+  let selectedHits = trustedHits;
   if (target.type === "ecommerce") {
-    const preferred = hits.filter((hit) => isPreferredEcommerceDomain(hit.url));
+    const preferred = trustedHits.filter((hit) => isPreferredEcommerceDomain(hit.url));
     const reviewPages = preferred.filter(
       (hit) =>
         ECOMMERCE_REVIEW_URL_HINT.test(hit.url) ||
         ECOMMERCE_REVIEW_URL_HINT.test(hit.title ?? "") ||
         ECOMMERCE_REVIEW_URL_HINT.test(hit.description ?? ""),
     );
-    selectedHits = (reviewPages.length ? reviewPages : preferred.length ? preferred : hits).slice(
+    selectedHits = (reviewPages.length ? reviewPages : preferred.length ? preferred : trustedHits).slice(
       0,
       target.limit,
     );
   } else {
-    const prioritizedHits = hits.filter((hit) => isReviewLikeHit(hit, target.type));
-    selectedHits = (prioritizedHits.length ? prioritizedHits : hits).slice(0, target.limit);
+    const prioritizedHits = trustedHits.filter((hit) => isReviewLikeHit(hit, target.type));
+    selectedHits = (prioritizedHits.length ? prioritizedHits : trustedHits).slice(0, target.limit);
   }
 
   const scraped = await Promise.allSettled(
@@ -161,6 +206,10 @@ async function searchAndScrapeTarget(
         type: target.type,
         content: data.markdown,
       };
+
+      if (!isTrustedHit({ url: source.url }, target.type)) {
+        throw new Error(`Untrusted source domain skipped: ${source.url}`);
+      }
 
       return parseScrapedSource(source);
     }),
