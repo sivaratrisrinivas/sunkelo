@@ -15,7 +15,9 @@ India's next 500M internet users are voice-first. Before buying products, they w
 - ✅ Sprint 3 completed: Sarvam chat/entity extraction, alias resolution, searching-status SSE, ProgressSteps UI, non-product rejection UI + tests
 - ✅ Sprint 4 completed: Firecrawl client/scraper/parsers, Mayura translation wrapper + chunking, source normalization to English, `/api/sources` endpoint, optional Firecrawl contract smoke test
 - ✅ Sprint 5 completed: review synthesis pipeline, structured ReviewCard UI, DB persistence, NO_REVIEWS flow, strict user-review evidence gate
-- ⏳ Sprint 6+ remain in planned state and are tracked in `docs/sprints.md`
+- ✅ Sprint 6 completed: TTS wrapper (Bulbul v3), Vercel Blob storage, localization pipeline (translate + TTS), useAudioPlayer hook, AudioPlayer component, localized error messages
+- ✅ Sprint 7 completed: review cache, localized cache, alias cache, retry with exponential backoff, async query logging, latency optimizations
+- ⏳ Sprint 8+ in planned state and are tracked in `docs/sprints.md`
 
 ### Core Objectives
 
