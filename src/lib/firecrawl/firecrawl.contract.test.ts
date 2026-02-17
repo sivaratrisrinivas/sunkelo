@@ -16,6 +16,6 @@ describe("firecrawl contract smoke test (optional)", () => {
 
     const scraped = await client.scrape(results[0].url);
     expect(typeof scraped.markdown).toBe("string");
-    expect(scraped.markdown.length).toBeGreaterThan(0);
+    expect((scraped.markdown ?? "").length).toBeGreaterThan(0);
   });
 });

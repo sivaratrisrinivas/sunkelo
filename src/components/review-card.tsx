@@ -4,6 +4,21 @@ type ReviewSource = {
   title: string;
   url: string;
   type?: "blog" | "ecommerce" | "youtube";
+  site?: "amazon" | "flipkart" | "myntra" | "ajio" | "unknown";
+  productTitle?: string;
+  price?: string;
+  currency?: string;
+  overallRating?: number;
+  ratingsCount?: number;
+  reviewsCount?: number;
+  reviewSampleCount?: number;
+  averageReviewRating?: number;
+  sentimentBreakdown?: {
+    positive: number;
+    negative: number;
+    neutral: number;
+    mixed: number;
+  };
 };
 
 export type ReviewCardData = {
@@ -78,6 +93,26 @@ export function ReviewCard({ data, loading = false }: ReviewCardProps) {
   }
 
   const confidencePercent = clampPercent(data.confidenceScore);
+  const ecommerceSources = data.sources.filter((source) => source.type === "ecommerce");
+  const ecommerceOverview = ecommerceSources[0];
+  const aggregatedSentiment = ecommerceSources.reduce(
+    (acc, source) => {
+      if (source.sentimentBreakdown) {
+        acc.positive += source.sentimentBreakdown.positive;
+        acc.negative += source.sentimentBreakdown.negative;
+        acc.neutral += source.sentimentBreakdown.neutral;
+        acc.mixed += source.sentimentBreakdown.mixed;
+      }
+      return acc;
+    },
+    { positive: 0, negative: 0, neutral: 0, mixed: 0 },
+  );
+  const hasSentiment =
+    aggregatedSentiment.positive +
+      aggregatedSentiment.negative +
+      aggregatedSentiment.neutral +
+      aggregatedSentiment.mixed >
+    0;
 
   return (
     <section className="glass overflow-hidden rounded-3xl p-6 sm:p-8 shadow-lg transition-all duration-300 hover:shadow-xl">
@@ -160,6 +195,60 @@ export function ReviewCard({ data, loading = false }: ReviewCardProps) {
           {data.bestFor}
         </p>
       </div>
+
+      {ecommerceOverview ? (
+        <div className="relative mb-8 rounded-2xl border border-blue-100 bg-blue-50 p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">User Review Snapshot</p>
+            <p className="text-xs text-blue-600">
+              {(ecommerceOverview.site ?? "unknown").toUpperCase()}
+              {typeof ecommerceOverview.overallRating === "number"
+                ? ` • ${ecommerceOverview.overallRating}/5`
+                : ""}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 text-sm text-gray-700 sm:grid-cols-2">
+            <p>
+              <span className="font-semibold text-gray-800">Product:</span>{" "}
+              {ecommerceOverview.productTitle ?? "Not captured"}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-800">Price:</span>{" "}
+              {ecommerceOverview.price
+                ? `${ecommerceOverview.price}${ecommerceOverview.currency ? ` (${ecommerceOverview.currency})` : ""}`
+                : "Not captured"}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-800">Ratings:</span>{" "}
+              {typeof ecommerceOverview.ratingsCount === "number"
+                ? ecommerceOverview.ratingsCount.toLocaleString()
+                : "Not captured"}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-800">Reviews:</span>{" "}
+              {typeof ecommerceOverview.reviewsCount === "number"
+                ? ecommerceOverview.reviewsCount.toLocaleString()
+                : ecommerceOverview.reviewSampleCount ?? "Not captured"}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-800">Sampled Reviews:</span>{" "}
+              {ecommerceOverview.reviewSampleCount ?? 0}
+            </p>
+            <p>
+              <span className="font-semibold text-gray-800">Avg Sample Rating:</span>{" "}
+              {typeof ecommerceOverview.averageReviewRating === "number"
+                ? `${ecommerceOverview.averageReviewRating}/5`
+                : "Not captured"}
+            </p>
+          </div>
+          {hasSentiment ? (
+            <p className="mt-3 text-xs text-blue-700">
+              Sentiment mix: +{aggregatedSentiment.positive} / -{aggregatedSentiment.negative} / neutral{" "}
+              {aggregatedSentiment.neutral} / mixed {aggregatedSentiment.mixed}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="space-y-4 border-t border-gray-100 pt-6">
         <div className="flex items-center justify-between">

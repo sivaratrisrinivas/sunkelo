@@ -17,6 +17,23 @@ export const synthesizedReviewSchema = z.object({
         title: z.string().min(1),
         url: z.string().url(),
         type: z.enum(["blog", "ecommerce", "youtube"]).optional(),
+        site: z.enum(["amazon", "flipkart", "myntra", "ajio", "unknown"]).optional(),
+        productTitle: z.string().optional(),
+        price: z.string().optional(),
+        currency: z.string().optional(),
+        overallRating: z.number().optional(),
+        ratingsCount: z.number().optional(),
+        reviewsCount: z.number().optional(),
+        reviewSampleCount: z.number().int().nonnegative().optional(),
+        averageReviewRating: z.number().optional(),
+        sentimentBreakdown: z
+          .object({
+            positive: z.number().int().nonnegative(),
+            negative: z.number().int().nonnegative(),
+            neutral: z.number().int().nonnegative(),
+            mixed: z.number().int().nonnegative(),
+          })
+          .optional(),
       }),
     )
     .min(1),
@@ -224,7 +241,53 @@ function ensureLength(value: string, min: number, fallback: string): string {
 function coerceSources(
   value: unknown,
   fallbackSources: NormalizedReviewSource[],
-): Array<{ title: string; url: string; type: "blog" | "ecommerce" | "youtube" }> {
+): Array<{
+  title: string;
+  url: string;
+  type: "blog" | "ecommerce" | "youtube";
+  site?: "amazon" | "flipkart" | "myntra" | "ajio" | "unknown";
+  productTitle?: string;
+  price?: string;
+  currency?: string;
+  overallRating?: number;
+  ratingsCount?: number;
+  reviewsCount?: number;
+  reviewSampleCount?: number;
+  averageReviewRating?: number;
+  sentimentBreakdown?: {
+    positive: number;
+    negative: number;
+    neutral: number;
+    mixed: number;
+  };
+}> {
+  const normalizeUrlKey = (value: string): string => value.replace(/\/+$/, "");
+  const fallbackByUrl = new Map(
+    fallbackSources.map((source) => {
+      const overview = source.ecommerceOverview;
+      return [
+        normalizeUrlKey(source.url),
+        {
+          type: source.type,
+          ...(overview
+            ? {
+                site: overview.site,
+                productTitle: overview.productTitle,
+                price: overview.price,
+                currency: overview.currency,
+                overallRating: overview.overallRating,
+                ratingsCount: overview.ratingsCount,
+                reviewsCount: overview.reviewsCount,
+                reviewSampleCount: overview.reviewSampleCount,
+                averageReviewRating: overview.averageReviewRating,
+                sentimentBreakdown: overview.sentimentBreakdown,
+              }
+            : {}),
+        },
+      ] as const;
+    }),
+  );
+
   const fromValue = Array.isArray(value)
     ? value
         .map((item) => {
@@ -236,16 +299,42 @@ function coerceSources(
           if (!title || !rawUrl) return null;
           try {
             const normalized = new URL(rawUrl).toString();
-            if (type === "blog" || type === "ecommerce" || type === "youtube") {
-              return { title, url: normalized, type };
-            }
-            return { title, url: normalized, type: "blog" as const };
+            const normalizedKey = normalizeUrlKey(normalized);
+            const fallback = fallbackByUrl.get(normalizedKey);
+            return {
+              title,
+              url: normalized,
+              type:
+                type === "blog" || type === "ecommerce" || type === "youtube"
+                  ? type
+                  : (fallback?.type ?? "blog"),
+              ...(fallback ?? {}),
+            };
           } catch {
             return null;
           }
         })
         .filter(
-          (item): item is { title: string; url: string; type: "blog" | "ecommerce" | "youtube" } =>
+          (item): item is {
+            title: string;
+            url: string;
+            type: "blog" | "ecommerce" | "youtube";
+            site?: "amazon" | "flipkart" | "myntra" | "ajio" | "unknown";
+            productTitle?: string;
+            price?: string;
+            currency?: string;
+            overallRating?: number;
+            ratingsCount?: number;
+            reviewsCount?: number;
+            reviewSampleCount?: number;
+            averageReviewRating?: number;
+            sentimentBreakdown?: {
+              positive: number;
+              negative: number;
+              neutral: number;
+              mixed: number;
+            };
+          } =>
             Boolean(item),
         )
     : [];
@@ -258,6 +347,20 @@ function coerceSources(
     title: source.title,
     url: source.url,
     type: source.type,
+    ...(source.ecommerceOverview
+      ? {
+          site: source.ecommerceOverview.site,
+          productTitle: source.ecommerceOverview.productTitle,
+          price: source.ecommerceOverview.price,
+          currency: source.ecommerceOverview.currency,
+          overallRating: source.ecommerceOverview.overallRating,
+          ratingsCount: source.ecommerceOverview.ratingsCount,
+          reviewsCount: source.ecommerceOverview.reviewsCount,
+          reviewSampleCount: source.ecommerceOverview.reviewSampleCount,
+          averageReviewRating: source.ecommerceOverview.averageReviewRating,
+          sentimentBreakdown: source.ecommerceOverview.sentimentBreakdown,
+        }
+      : {}),
   }));
 }
 

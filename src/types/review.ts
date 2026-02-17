@@ -9,7 +9,26 @@ export type Review = {
   pros: string[];
   cons: string[];
   bestFor?: string | null;
-  sources: Array<{ title: string; url: string; type?: "blog" | "ecommerce" | "youtube" }>;
+  sources: Array<{
+    title: string;
+    url: string;
+    type?: "blog" | "ecommerce" | "youtube";
+    site?: "amazon" | "flipkart" | "myntra" | "ajio" | "unknown";
+    productTitle?: string;
+    price?: string;
+    currency?: string;
+    overallRating?: number;
+    ratingsCount?: number;
+    reviewsCount?: number;
+    reviewSampleCount?: number;
+    averageReviewRating?: number;
+    sentimentBreakdown?: {
+      positive: number;
+      negative: number;
+      neutral: number;
+      mixed: number;
+    };
+  }>;
   createdAt: Date;
 };
 

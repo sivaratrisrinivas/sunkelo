@@ -34,13 +34,25 @@ export type FirecrawlSearchOptions = {
 };
 
 export type FirecrawlScrapeOptions = {
-  formats?: string[];
+  formats?: FirecrawlScrapeFormat[];
   onlyMainContent?: boolean;
+  waitFor?: number;
+  timeout?: number;
+  actions?: Array<Record<string, unknown>>;
 };
+
+export type FirecrawlScrapeJsonFormat = {
+  type: "json";
+  schema?: Record<string, unknown>;
+  prompt?: string;
+};
+
+export type FirecrawlScrapeFormat = string | FirecrawlScrapeJsonFormat;
 
 export type FirecrawlScrapeResult = {
   url: string;
-  markdown: string;
+  markdown?: string;
+  json?: unknown;
   title?: string;
 };
 
@@ -74,6 +86,7 @@ type FirecrawlSearchResponse = {
 type FirecrawlScrapeResponse = {
   data?: {
     markdown?: string;
+    json?: unknown;
     metadata?: {
       title?: string;
     };
@@ -167,17 +180,22 @@ export function getFirecrawlClient(): FirecrawlClient {
           url,
           formats: options.formats ?? ["markdown"],
           onlyMainContent: options.onlyMainContent ?? true,
+          waitFor: options.waitFor,
+          timeout: options.timeout,
+          actions: options.actions,
         },
       });
 
       const markdown = payload.data?.markdown?.trim();
-      if (!markdown) {
+      const json = payload.data?.json;
+      if (!markdown && typeof json === "undefined") {
         throw new FirecrawlError(`No markdown returned for ${url}`, 502);
       }
 
       return {
         url,
         markdown,
+        json,
         title: payload.data?.metadata?.title,
       };
     },

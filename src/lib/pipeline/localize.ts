@@ -22,6 +22,26 @@ export type LocalizedReviewResult = {
 
 const BULBUL_SUPPORTED_LANGUAGE_CODES = new Set<string>(SUPPORTED_LANGUAGES);
 
+function toSentenceList(items: string[]): string {
+  if (!items.length) return "not enough repeated signals";
+  return items.map((item) => item.replace(/\.$/, "").trim()).join(". ");
+}
+
+function buildSpeechFriendlyReviewText(review: SynthesizedReview): string {
+  return [
+    "Here is a plain-language review summary.",
+    review.summary,
+    `Quick verdict: ${review.verdict}.`,
+    `What works well: ${toSentenceList(review.pros)}.`,
+    `What may disappoint: ${toSentenceList(review.cons)}.`,
+    `Best suited for: ${review.bestFor}.`,
+    "That is the full review summary.",
+  ]
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function localizeReview({
   reviewId,
   productSlug,
@@ -45,10 +65,15 @@ export async function localizeReview({
     : [review.summary, review.tldr];
 
   const ttsLanguageCode = BULBUL_SUPPORTED_LANGUAGE_CODES.has(targetLanguage) ? targetLanguage : "en-IN";
+  const speechScript = buildSpeechFriendlyReviewText({
+    ...review,
+    summary: localizedSummary,
+    tldr: localizedTldr,
+  });
   const ttsInputText =
     ttsLanguageCode === targetLanguage
-      ? localizedTldr
-      : await translateLong(localizedTldr, {
+      ? speechScript
+      : await translateLong(speechScript, {
           sourceLanguageCode: targetLanguage,
           targetLanguageCode: "en-IN",
         });

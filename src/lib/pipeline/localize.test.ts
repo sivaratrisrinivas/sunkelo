@@ -59,7 +59,7 @@ describe("localizeReview", () => {
     expect(mockTranslateLong).toHaveBeenCalledTimes(2);
     expect(mockSynthesizeTts).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: "ଏହା ଅନୁବାଦିତ TLDR",
+        text: expect.stringContaining("ଏହା ଅନୁବାଦିତ ସାରାଂଶ"),
         languageCode: "od-IN",
       }),
     );
@@ -81,7 +81,7 @@ describe("localizeReview", () => {
     expect(mockTranslateLong).not.toHaveBeenCalled();
     expect(mockSynthesizeTts).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: baseReview.tldr,
+        text: expect.stringContaining(baseReview.summary),
         languageCode: "en-IN",
       }),
     );
@@ -106,14 +106,14 @@ describe("localizeReview", () => {
     expect(result.ttsLanguageCode).toBe("en-IN");
     expect(mockSynthesizeTts).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: "English fallback TLDR",
+        text: expect.stringContaining("English fallback TLDR"),
         languageCode: "en-IN",
       }),
     );
   });
 
-  it("returns data URL when blob upload fails", async () => {
-    mockUploadTtsAudio.mockRejectedValueOnce(new Error("blob unavailable"));
+  it("returns data URL when db audio storage fails", async () => {
+    mockUploadTtsAudio.mockRejectedValueOnce(new Error("db unavailable"));
 
     const result = await localizeReview({
       reviewId: 13,

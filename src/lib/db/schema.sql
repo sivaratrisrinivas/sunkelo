@@ -43,6 +43,19 @@ CREATE TABLE IF NOT EXISTS review_translations (
 
 CREATE INDEX IF NOT EXISTS idx_review_translations_review_id ON review_translations(review_id);
 
+CREATE TABLE IF NOT EXISTS review_audio_assets (
+  audio_key TEXT PRIMARY KEY,
+  review_id BIGINT REFERENCES reviews(id) ON DELETE CASCADE,
+  language_code TEXT NOT NULL,
+  mime_type TEXT NOT NULL DEFAULT 'audio/wav',
+  audio_base64 TEXT NOT NULL,
+  byte_size INTEGER NOT NULL,
+  duration_seconds DOUBLE PRECISION,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_audio_assets_review_id ON review_audio_assets(review_id);
+
 CREATE TABLE IF NOT EXISTS query_logs (
   id BIGSERIAL PRIMARY KEY,
   ip_hash TEXT NOT NULL,

@@ -23,17 +23,32 @@ describe("ReviewCard", () => {
           },
           sources: [
             { title: "GSMArena", url: "https://example.com/gsmarena", type: "blog" },
-            { title: "Flipkart", url: "https://example.com/flipkart", type: "ecommerce" },
+            {
+              title: "Flipkart",
+              url: "https://example.com/flipkart",
+              type: "ecommerce",
+              site: "flipkart",
+              productTitle: "Sample Phone",
+              price: "₹19,999",
+              currency: "INR",
+              overallRating: 4.3,
+              ratingsCount: 5012,
+              reviewsCount: 1402,
+              reviewSampleCount: 24,
+              averageReviewRating: 4.1,
+              sentimentBreakdown: { positive: 15, negative: 4, neutral: 3, mixed: 2 },
+            },
           ],
         }}
       />,
     );
 
-    expect(html).toContain("Buy");
+    expect(html).toContain("Recommended");
     expect(html).toContain("Excellent battery");
     expect(html).toContain("Bloatware");
-    expect(html).toContain("Best for:");
-    expect(html).toContain("User review evidence:");
+    expect(html).toContain("Best for");
+    expect(html).toContain("User Review Snapshot");
+    expect(html).toContain("Sample Phone");
     expect(html).toContain('target="_blank"');
   });
 

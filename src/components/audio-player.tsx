@@ -38,7 +38,7 @@ export function AudioPlayer({ audioUrl, durationSeconds, onPlay }: AudioPlayerPr
 
   return (
     <section
-      className="glass overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
+      className="glass relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
       aria-label="Audio summary"
     >
       <div className="flex items-center gap-4 p-4">
@@ -89,7 +89,7 @@ export function AudioPlayer({ audioUrl, durationSeconds, onPlay }: AudioPlayerPr
       </div>
 
       {player.isLoading ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm">
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/75">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-rose-200 border-t-rose-500" />
         </div>
       ) : null}

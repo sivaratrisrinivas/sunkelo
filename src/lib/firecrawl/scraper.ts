@@ -1,5 +1,6 @@
 import { getFirecrawlClient, type FirecrawlClient } from "./client";
 import { parseScrapedSource } from "./parsers";
+import { z } from "zod";
 
 export type ScrapedSourceType = "blog" | "ecommerce" | "youtube";
 
@@ -8,7 +9,70 @@ export type ScrapedReviewSource = {
   title: string;
   type: ScrapedSourceType;
   content: string;
+  ecommerceOverview?: EcommerceOverview;
 };
+
+const SentimentLabelSchema = z.enum(["positive", "negative", "neutral", "mixed"]);
+
+const EcommerceSentimentSchema = z.object({
+  label: SentimentLabelSchema,
+  score: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1),
+  reasons: z.array(z.string()).max(3).optional(),
+});
+
+const EcommerceReviewItemSchema = z.object({
+  reviewerName: z.string().optional(),
+  reviewDate: z.string().optional(),
+  starRating: z.number().optional(),
+  title: z.string().optional(),
+  reviewText: z.string().optional(),
+  sentiment: EcommerceSentimentSchema.optional(),
+});
+
+const EcommerceJsonSchema = z.object({
+  site: z.enum(["amazon", "flipkart", "myntra", "ajio", "unknown"]).optional(),
+  url: z.string().url().optional(),
+  productTitle: z.string().optional(),
+  price: z.string().optional(),
+  currency: z.string().optional(),
+  overallRating: z.number().optional(),
+  ratingsCount: z.number().optional(),
+  reviewsCount: z.number().optional(),
+  reviews: z.array(EcommerceReviewItemSchema).optional(),
+});
+
+export type EcommerceOverview = {
+  site: "amazon" | "flipkart" | "myntra" | "ajio" | "unknown";
+  productTitle?: string;
+  price?: string;
+  currency?: string;
+  overallRating?: number;
+  ratingsCount?: number;
+  reviewsCount?: number;
+  reviewSampleCount: number;
+  averageReviewRating?: number;
+  sentimentBreakdown: {
+    positive: number;
+    negative: number;
+    neutral: number;
+    mixed: number;
+  };
+};
+
+const ECOMMERCE_JSON_PROMPT = `
+Extract product + user review signals from this ecommerce product page.
+
+Return JSON that matches the schema exactly.
+
+Rules:
+- Infer site from domain (amazon/flipkart/myntra/ajio/unknown).
+- Extract productTitle, price, currency, overallRating, ratingsCount, reviewsCount when visible.
+- Extract up to 25 visible reviews.
+- For each review: reviewerName, reviewDate, starRating, title, reviewText.
+- Add sentiment per review (positive/negative/neutral/mixed with score/confidence and up to 3 short reasons).
+- Do not invent values; omit unknown fields.
+`.trim();
 
 type SearchTarget = {
   productName: string;
@@ -149,6 +213,85 @@ function isPreferredEcommerceDomain(url: string): boolean {
   return /(amazon\.in|flipkart\.com)/i.test(url);
 }
 
+function detectSite(url: string): EcommerceOverview["site"] {
+  const host = hostFromUrl(url) ?? "";
+  if (host.includes("amazon.")) return "amazon";
+  if (host.includes("flipkart.com")) return "flipkart";
+  if (host.includes("myntra.com")) return "myntra";
+  if (host.includes("ajio.com")) return "ajio";
+  return "unknown";
+}
+
+function buildFallbackOverview(url: string): EcommerceOverview {
+  return {
+    site: detectSite(url),
+    reviewSampleCount: 0,
+    sentimentBreakdown: {
+      positive: 0,
+      negative: 0,
+      neutral: 0,
+      mixed: 0,
+    },
+  };
+}
+
+function parseEcommercePayload(url: string, payload: unknown): {
+  content: string;
+  overview: EcommerceOverview;
+} | null {
+  const parsed = EcommerceJsonSchema.safeParse(payload);
+  if (!parsed.success) {
+    return null;
+  }
+
+  const reviews = (parsed.data.reviews ?? [])
+    .map((review) => {
+      const title = review.title?.trim();
+      const text = review.reviewText?.trim();
+      const rating = typeof review.starRating === "number" ? `${review.starRating}/5` : null;
+      const sentiment = review.sentiment?.label ? `sentiment:${review.sentiment.label}` : null;
+      const packed = [title, text, rating, sentiment].filter(Boolean).join(" | ");
+      return packed.trim();
+    })
+    .filter(Boolean);
+
+  const sentimentBreakdown = {
+    positive: 0,
+    negative: 0,
+    neutral: 0,
+    mixed: 0,
+  };
+  let ratingsSum = 0;
+  let ratingsCount = 0;
+  for (const review of parsed.data.reviews ?? []) {
+    if (review.sentiment?.label) {
+      sentimentBreakdown[review.sentiment.label] += 1;
+    }
+    if (typeof review.starRating === "number") {
+      ratingsSum += review.starRating;
+      ratingsCount += 1;
+    }
+  }
+
+  const overview: EcommerceOverview = {
+    site: parsed.data.site ?? detectSite(url),
+    productTitle: parsed.data.productTitle,
+    price: parsed.data.price,
+    currency: parsed.data.currency,
+    overallRating: parsed.data.overallRating,
+    ratingsCount: parsed.data.ratingsCount,
+    reviewsCount: parsed.data.reviewsCount,
+    reviewSampleCount: reviews.length,
+    averageReviewRating: ratingsCount ? Number((ratingsSum / ratingsCount).toFixed(2)) : undefined,
+    sentimentBreakdown,
+  };
+
+  return {
+    content: reviews.join(". "),
+    overview,
+  };
+}
+
 async function searchAndScrapeTarget(
   target: SearchTarget,
   client: FirecrawlClient,
@@ -195,16 +338,50 @@ async function searchAndScrapeTarget(
 
   const scraped = await Promise.allSettled(
     selectedHits.map(async (hit) => {
-      const data = await client.scrape(hit.url, {
-        formats: ["markdown"],
-        onlyMainContent: true,
-      });
+      let data = null as Awaited<ReturnType<FirecrawlClient["scrape"]>> | null;
+      let overview: EcommerceOverview | undefined;
+
+      if (target.type === "ecommerce") {
+        data = await client.scrape(hit.url, {
+          formats: [
+            {
+              type: "json",
+              schema: z.toJSONSchema(EcommerceJsonSchema) as Record<string, unknown>,
+              prompt: ECOMMERCE_JSON_PROMPT,
+            },
+          ],
+          onlyMainContent: false,
+          waitFor: 2000,
+          timeout: 120000,
+        });
+
+        const parsedJson = parseEcommercePayload(hit.url, data.json);
+        if (parsedJson) {
+          overview = parsedJson.overview;
+          data = {
+            ...data,
+            markdown: parsedJson.content || data.markdown || "",
+          };
+        } else if (!data.markdown) {
+          data = await client.scrape(hit.url, {
+            formats: ["markdown"],
+            onlyMainContent: true,
+          });
+          overview = buildFallbackOverview(hit.url);
+        }
+      } else {
+        data = await client.scrape(hit.url, {
+          formats: ["markdown"],
+          onlyMainContent: true,
+        });
+      }
 
       const source: ScrapedReviewSource = {
         url: data.url,
         title: data.title ?? hit.title ?? target.productName,
         type: target.type,
-        content: data.markdown,
+        content: data.markdown ?? "",
+        ecommerceOverview: overview,
       };
 
       if (!isTrustedHit({ url: source.url }, target.type)) {
