@@ -130,12 +130,24 @@ function envFlag(name: string): boolean {
 }
 
 function tokenize(text: string): string[] {
-  return text
+  const normalized = text
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, " ")
-    .split(/[^a-z0-9.]+/)
-    .map((token) => token.replace(/^\.+|\.+$/g, ""))
-    .filter((token) => token.length > 0);
+    .replace(/\d{1,3}(?:,\d{3})+(?:\.\d+)?/g, (match) => match.replace(/,/g, ""));
+  const tokens: string[] = [];
+  for (const raw of normalized.split(/[^a-z0-9.]+/)) {
+    const token = raw.replace(/^\.+|\.+$/g, "");
+    if (token.length === 0) {
+      continue;
+    }
+    const peeled = /^(\d+(?:\.\d+)?)([a-z].*)$/.exec(token);
+    if (peeled && peeled[1] && peeled[2]) {
+      tokens.push(peeled[1], peeled[2]);
+    } else {
+      tokens.push(token);
+    }
+  }
+  return tokens;
 }
 
 function contentTokens(text: string): string[] {
@@ -173,6 +185,9 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
   const trapSource = "Capacity is 1200. Peak is 18.1. Serial 218.";
   const trapClaim = "Capacity is 200. Peak is 18. Serial 18.";
   const trap = judgeClaim(trapClaim, trapSource);
+  const unitSource = "The battery capacity is 5000mAh in this test.";
+  const unitFalse = judgeClaim("The battery capacity is 500 in this test.", unitSource);
+  const unitTrue = judgeClaim("The battery capacity is 5000 in this test.", unitSource);
   return [
     {
       name: "grounded-claim-detected",
@@ -181,7 +196,7 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
     },
     {
       name: "absent-claim-detected",
-      passed: absent.grounded === false,
+      passed: absent.grounded === false && absent.missingNumbers.includes("200"),
       detail: `overlap=${absent.overlap} missingNumbers=${absent.missingNumbers.join(",") || "none"}`,
     },
     {
@@ -189,8 +204,15 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
       passed:
         trap.grounded === false &&
         trap.missingNumbers.includes("200") &&
-        trap.missingNumbers.includes("18"),
-      detail: `grounded=${trap.grounded} overlap=${trap.overlap} missingNumbers=${trap.missingNumbers.join(",") || "none"}`,
+        trap.missingNumbers.includes("18") &&
+        unitFalse.grounded === false &&
+        unitFalse.missingNumbers.includes("500") &&
+        unitTrue.grounded === true &&
+        unitTrue.missingNumbers.length === 0,
+      detail:
+        `200-in-1200/18-in-18.1 grounded=${trap.grounded} missing=${trap.missingNumbers.join(",") || "none"}; ` +
+        `500-vs-5000mAh grounded=${unitFalse.grounded} missing=${unitFalse.missingNumbers.join(",") || "none"}; ` +
+        `5000-vs-5000mAh grounded=${unitTrue.grounded} missing=${unitTrue.missingNumbers.join(",") || "none"}`,
     },
   ];
 }
@@ -365,8 +387,9 @@ async function main(): Promise<void> {
   const hardware = hardwareInfo();
   const checks = instrumentChecks();
   const failures: string[] = [];
+  const instrumentFailed = checks.some((check) => !check.passed);
 
-  if (checks.some((check) => !check.passed)) {
+  if (instrumentFailed) {
     failures.push("claim checker instrument checks failed");
   }
 
@@ -451,7 +474,16 @@ async function main(): Promise<void> {
   const totalAbsent = synthesizedOk.reduce((sum, row) => sum + row.absentClaims, 0);
 
   let absentMetric: Metric;
-  if (synthesizedOk.length === 0) {
+  if (instrumentFailed) {
+    const failedNames = checks.filter((check) => !check.passed).map((check) => check.name);
+    absentMetric = {
+      status: "failed",
+      value: null,
+      unit: "rate",
+      error: `Claim-checker instrument checks failed (${failedNames.join(", ")}). Absent-claim rate is not published because the checker is broken.`,
+    };
+    failures.push("absent_claim_rate: instrument checks failed");
+  } else if (synthesizedOk.length === 0) {
     const reasons = [...new Set(productRows.map((row) => row.synthesisError).filter(Boolean))];
     absentMetric = {
       status: "failed",
@@ -530,7 +562,7 @@ async function main(): Promise<void> {
     },
     method: {
       absent_claims:
-        "Split the synthesized summary into sentences. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing.",
+        "Split the synthesized summary into sentences. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer strips thousands separators (18,999 becomes 18999) and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed and no rate is published.",
       cache:
         "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
       cost:
