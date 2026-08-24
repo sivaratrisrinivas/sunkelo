@@ -231,7 +231,9 @@ function tokenize(text: string): string[] {
 }
 
 function contentTokens(text: string): string[] {
-  return tokenize(text).filter((token) => token.length > 2 && !STOPWORDS.has(token));
+  return tokenize(text).filter(
+    (token) => (token.length > 2 || token === "no") && !STOPWORDS.has(token),
+  );
 }
 
 function numberTokens(text: string): string[] {
@@ -394,6 +396,9 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
   const contradictionTokens = contentTokens(contradictionSource);
   const contradictionBag = tokenBagOverlap(contradictionClaim, contradictionSource);
   const claimNegation = judgeClaim("It is not a camera flagship.", "It is a camera flagship.");
+  const noSource = "It is no camera flagship.";
+  const noTokens = contentTokens(noSource);
+  const noBag = tokenBagOverlap(contradictionClaim, noSource);
   const fiveStarSource = "The listing has 5-star reviews from buyers.";
   const fiveGClaim = judgeClaim("The listing has 5G reviews from buyers.", fiveStarSource);
   const sevenSource = "The phone gets seven years of OS updates.";
@@ -498,11 +503,14 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
       passed:
         contradictionTokens.includes("not") &&
         contentTokens("It is nor a camera flagship.").includes("nor") &&
+        noTokens.includes("no") &&
         contradictionBag < 1 &&
+        noBag < 1 &&
         claimNegation.overlap < 1,
       detail:
         `sourceHasNot=${contradictionTokens.includes("not")} bagOverlap=${contradictionBag.toFixed(4)} ` +
-        `claimNegationOverlap=${claimNegation.overlap} norKept=${contentTokens("It is nor a camera flagship.").includes("nor")}`,
+        `claimNegationOverlap=${claimNegation.overlap} norKept=${contentTokens("It is nor a camera flagship.").includes("nor")} ` +
+        `noKept=${noTokens.includes("no")} noBagOverlap=${noBag.toFixed(4)}`,
     },
     {
       name: "five-g-not-five-star",
@@ -952,7 +960,7 @@ async function main(): Promise<void> {
     },
     method: {
       absent_claims:
-        "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has a number token, or if it has no number token and at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. Bound number-unit tokens stay intact (5G stays 5g) and count as number tokens, so 5G does not match 5-star. When the suffix is a measurement unit such as mah, w, hz, or mp, the tokenizer also emits the bare number, so 5000mAh matches 5000mAh or 5000. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and maps word numbers one through ten and twelve to digits (seven becomes 7). not, no, and nor are content tokens, not stopwords, so a source like 'not a camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
+        "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has a number token, or if it has no number token and at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. Bound number-unit tokens stay intact (5G stays 5g) and count as number tokens, so 5G does not match 5-star. When the suffix is a measurement unit such as mah, w, hz, or mp, the tokenizer also emits the bare number, so 5000mAh matches 5000mAh or 5000. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and maps word numbers one through ten and twelve to digits (seven becomes 7). not, no, and nor are content tokens, not stopwords. no is kept even though it has length 2, so a source like 'It is no camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
       cache:
         "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map. Observed hits and lookups always stay in cache.*. If Redis is unset, cache_hit_rate is failed and redis-missing is recorded; do not publish status=ok with value=0 as a GS-T7 cache number. If Redis is configured, the live hit rate is an observed ok metric.",
       cost:

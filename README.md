@@ -107,17 +107,17 @@ Detailed product spec lives in `docs/spec.md`.
 
 ## Results
 
-GS-T7 ran on 2026-08-24 against 5 products. Synthesis model is sarvam-105b. Hardware was an Intel Xeon, 4 cores, 15.6 GiB RAM, Node v22.14.0.
+GS-T7 ran at 2026-08-24T21:59:17.834Z against 5 products. Synthesis model is sarvam-105b. Hardware was an Intel Xeon, 8 cores, 15.6 GiB RAM, linux/x64, Node v20.19.2.
 
-This checkout had no API keys. I still ran the product cache functions instead of a fake Map. Repeat lookups still missed (0/10 in `cache.*`). Redis was unset, so that count is not published as an ok GS-T7 cache hit rate.
+`SARVAM_API_KEY`, `FIRECRAWL_API_KEY`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN` were set. `GEMINI_API_KEY` was not.
 
 | Metric | Result |
 |---|---|
-| Absent-claim rate | failed. `SARVAM_API_KEY` was unset, so `synthesizeReview` never ran. |
-| Cache hit rate | failed. Redis unset. Observed 0/10 hits stay in `cache.*`. Not published as 0%. |
-| Cost per query (INR) | failed. No live Sarvam usage tokens. Not reported as ₹0, because that would describe missing keys, not a query. Published 105B rates are INR-only (`https://docs.sarvam.ai/api/getting-started/pricing`, fetched 2026-08-25). |
-| Cost per query (USD) | failed. No published USD list price for sarvam-105b. No FX conversion. No combined USD query price. |
-| Firecrawl-only cost (USD) | n/a. No live Firecrawl calls. |
+| Absent-claim rate | failed. No summaries produced. Synthesis chat call failed |
+| Cache hit rate | ok. 0.5 (5/10 hits). redisConfigured=true. |
+| Cost per query (INR) | failed. Synthesis did not run, so no sarvam-105b token usage is available for INR pricing. |
+| Cost per query (USD) | failed. No published USD list price for sarvam-105b. This bench will not invent an FX conversion from INR. |
+| Firecrawl-only cost (USD) | ok. 0.0384. Firecrawl-only, not a Sarvam USD price. 3 scrapeAllSources calls. Credits approximated as 3 searches plus 6 scrapes per product = 36 credits at $0.0032/credit Hobby yearly (firecrawl.dev/pricing). |
 
 Re-run with `npm run bench:gs-t7`. Raw JSON is `bench/gs-t7-results.json`.
 
