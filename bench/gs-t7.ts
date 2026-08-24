@@ -218,6 +218,9 @@ function isAbbreviationPeriod(text: string, periodIndex: number): boolean {
     start -= 1;
   }
   const word = text.slice(start + 1, periodIndex).toLowerCase();
+  if (word.length === 1 && start >= 0 && /\d/.test(text[start] ?? "")) {
+    return false;
+  }
   return word.length === 1 || SENTENCE_ABBREVIATIONS.has(word);
 }
 
@@ -281,8 +284,15 @@ function splitSentences(text: string): string[] {
   return sentences;
 }
 
+function isClaimSentence(part: string): boolean {
+  if (numberTokens(part).length > 0) {
+    return true;
+  }
+  return contentTokens(part).length >= 4;
+}
+
 function extractSummaryClaims(summary: string): string[] {
-  return splitSentences(summary).filter((part) => contentTokens(part).length >= 4);
+  return splitSentences(summary).filter((part) => isClaimSentence(part));
 }
 
 function judgeClaim(claim: string, sourceText: string): ClaimJudgement {
@@ -314,6 +324,9 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
   const lakhClaim = judgeClaim("The listing price is 118999 rupees today.", lakhSource);
   const shortNumbered = "Battery lasts 5000mAh all day.";
   const shortClaims = extractSummaryClaims(shortNumbered);
+  const numberedShortSummary =
+    "Charging is 33W. The 50MP camera is average at night. Price is 18999 rupees. Camera is average.";
+  const numberedShortClaims = extractSummaryClaims(numberedShortSummary);
   const rsSummary =
     "Price starts at Rs. 18,999 and the 5000mAh battery lasts a day. Night photos show heavy noise indoors.";
   const rsClaims = extractSummaryClaims(rsSummary);
@@ -372,8 +385,22 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
     {
       name: "short-numbered-sentence-kept",
       passed:
-        shortClaims.length === 1 && numberTokens(shortClaims[0] ?? "").includes("5000"),
-      detail: `count=${shortClaims.length} numbers=${numberTokens(shortClaims[0] ?? "").join(",") || "none"}`,
+        shortClaims.length === 1 &&
+        numberTokens(shortClaims[0] ?? "").includes("5000") &&
+        numberedShortClaims.length === 3 &&
+        numberedShortClaims.some(
+          (claim) => /charging is 33w/i.test(claim) && numberTokens(claim).includes("33"),
+        ) &&
+        numberedShortClaims.some(
+          (claim) => /50mp camera/i.test(claim) && numberTokens(claim).includes("50"),
+        ) &&
+        numberedShortClaims.some(
+          (claim) => /18999 rupees/i.test(claim) && numberTokens(claim).includes("18999"),
+        ) &&
+        !numberedShortClaims.some((claim) => /^camera is average\.?$/i.test(claim.trim())),
+      detail:
+        `longCount=${shortClaims.length} longNumbers=${numberTokens(shortClaims[0] ?? "").join(",") || "none"}; ` +
+        `shortCount=${numberedShortClaims.length} kept=${numberedShortClaims.join(" || ") || "none"}`,
     },
     {
       name: "sentence-split-abbreviation-and-bullets",
@@ -716,7 +743,7 @@ async function main(): Promise<void> {
       status: "failed",
       value: null,
       unit: "rate",
-      error: `${synthesizedOk.length} summaries produced but claim splitter found 0 summary sentences with at least 4 content tokens`,
+      error: `${synthesizedOk.length} summaries produced but claim splitter found 0 numbered sentences or sentences with at least 4 content tokens`,
     };
     failures.push("absent_claim_rate: zero claims extracted");
   } else {
@@ -834,7 +861,7 @@ async function main(): Promise<void> {
     },
     method: {
       absent_claims:
-        "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). not, no, and nor are content tokens, not stopwords, so a source like 'not a camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
+        "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has a number token, or if it has no number token and at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). not, no, and nor are content tokens, not stopwords, so a source like 'not a camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
       cache:
         "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
       cost:
