@@ -834,12 +834,24 @@ async function main(): Promise<void> {
     };
   }
 
-  const cacheMetric: Metric = {
-    status: "ok",
-    value: cache.hitRate,
-    unit: "rate",
-    detail: `${cache.hits}/${cache.lookups} hits. redisConfigured=${cache.redisConfigured}. ${cache.notes.join(" ")}`,
-  };
+  let cacheMetric: Metric;
+  if (!cache.redisConfigured) {
+    cacheMetric = {
+      status: "failed",
+      value: null,
+      unit: "rate",
+      error:
+        `Redis is unset (UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN missing). Observed ${cache.hits}/${cache.lookups} hits via product cache functions. This bench will not publish 0 as a GS-T7 cache hit rate, because that would describe missing Redis config, not a cache.`,
+    };
+    failures.push("redis-missing");
+  } else {
+    cacheMetric = {
+      status: "ok",
+      value: cache.hitRate,
+      unit: "rate",
+      detail: `${cache.hits}/${cache.lookups} hits. redisConfigured=${cache.redisConfigured}. ${cache.notes.join(" ")}`,
+    };
+  }
 
   let costInrMetric: Metric;
   let costUsdMetric: Metric;
@@ -942,7 +954,7 @@ async function main(): Promise<void> {
       absent_claims:
         "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has a number token, or if it has no number token and at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. Bound number-unit tokens stay intact (5G stays 5g) and count as number tokens, so 5G does not match 5-star. When the suffix is a measurement unit such as mah, w, hz, or mp, the tokenizer also emits the bare number, so 5000mAh matches 5000mAh or 5000. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and maps word numbers one through ten and twelve to digits (seven becomes 7). not, no, and nor are content tokens, not stopwords, so a source like 'not a camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
       cache:
-        "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
+        "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map. Observed hits and lookups always stay in cache.*. If Redis is unset, cache_hit_rate is failed and redis-missing is recorded; do not publish status=ok with value=0 as a GS-T7 cache number. If Redis is configured, the live hit rate is an observed ok metric.",
       cost:
         "If synthesizeReview returns API usage token counts, compute INR from the published sarvam-105b rates on https://docs.sarvam.ai/api/getting-started/pricing (fetched 2026-08-25): input ₹29.28, cached input ₹10.98, output ₹73.2 per 1M tokens. Do not convert INR to USD. USD stays failed because there is no published USD rate. Firecrawl may have a separate Hobby-credit USD estimate, labeled Firecrawl-only, never as a Sarvam USD price. Do not invent a billed cost when live calls did not happen.",
     },
