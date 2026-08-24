@@ -1,6 +1,6 @@
 {
   "task": "GS-T7",
-  "measured_at": "2026-08-24T21:46:22.448Z",
+  "measured_at": "2026-08-24T21:52:52.300Z",
   "model": "sarvam-105b",
   "dataset_size": 5,
   "hardware": {
@@ -19,7 +19,7 @@
     "reason": "It is the only pipeline-level harness that already records cache hit vs miss on the query path, but it mocks scrape, synthesis, and Redis, so it cannot record live absent-claim rate or cost."
   },
   "method": {
-    "absent_claims": "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has a number token, or if it has no number token and at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). not, no, and nor are content tokens, not stopwords, so a source like 'not a camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
+    "absent_claims": "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has a number token, or if it has no number token and at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. Bound number-unit tokens stay intact (5G stays 5g) and count as number tokens, so 5G does not match 5-star. When the suffix is a measurement unit such as mah, w, hz, or mp, the tokenizer also emits the bare number, so 5000mAh matches 5000mAh or 5000. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and maps word numbers one through ten and twelve to digits (seven becomes 7). not, no, and nor are content tokens, not stopwords, so a source like 'not a camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
     "cache": "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
     "cost": "If synthesizeReview returns API usage token counts, compute INR from the published sarvam-105b rates on https://docs.sarvam.ai/api/getting-started/pricing (fetched 2026-08-25): input ₹29.28, cached input ₹10.98, output ₹73.2 per 1M tokens. Do not convert INR to USD. USD stays failed because there is no published USD rate. Firecrawl may have a separate Hobby-credit USD estimate, labeled Firecrawl-only, never as a Sarvam USD price. Do not invent a billed cost when live calls did not happen."
   },
@@ -34,12 +34,12 @@
     {
       "name": "grounded-claim-detected",
       "passed": true,
-      "detail": "overlap=0.75 missingNumbers=none"
+      "detail": "overlap=0.7778 missingNumbers=none"
     },
     {
       "name": "absent-claim-detected",
       "passed": true,
-      "detail": "overlap=0 missingNumbers=200"
+      "detail": "overlap=0 missingNumbers=200mp,200"
     },
     {
       "name": "number-token-not-substring",
@@ -54,12 +54,12 @@
     {
       "name": "short-numbered-sentence-kept",
       "passed": true,
-      "detail": "longCount=1 longNumbers=5000; shortCount=3 kept=Charging is 33W. || The 50MP camera is average at night. || Price is 18999 rupees."
+      "detail": "longCount=1 longNumbers=5000mah,5000; shortCount=3 kept=Charging is 33W. || The 50MP camera is average at night. || Price is 18999 rupees."
     },
     {
       "name": "sentence-split-abbreviation-and-bullets",
       "passed": true,
-      "detail": "rsClaims=2 rsNumbers=18999,5000; bulletClaims=2 bulletNumbers=5000|120; specClaims=1 specNumbers=120,5000,33"
+      "detail": "rsClaims=2 rsNumbers=18999,5000mah,5000; bulletClaims=2 bulletNumbers=5000mah,5000|120hz,120; specClaims=1 specNumbers=120hz,120,5000mah,5000,33w,33"
     },
     {
       "name": "glued-rs-price-grounds",
@@ -70,6 +70,16 @@
       "name": "negation-not-stopword",
       "passed": true,
       "detail": "sourceHasNot=true bagOverlap=0.6667 claimNegationOverlap=0.6667 norKept=true"
+    },
+    {
+      "name": "five-g-not-five-star",
+      "passed": true,
+      "detail": "5G tokens=5g; 5000mAh tokens=5000mah,5000; 5G-vs-5-star grounded=false missing=5g"
+    },
+    {
+      "name": "seven-years-grounds-as-7",
+      "passed": true,
+      "detail": "sevenTokens=7; digitTokens=7; grounded=true overlap=1 missing=none"
     }
   ],
   "live_calls": {
