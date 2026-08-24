@@ -109,12 +109,12 @@ Detailed product spec lives in `docs/spec.md`.
 
 GS-T7 ran on 2026-08-24 against 5 products. Synthesis model is sarvam-105b. Hardware was an Intel Xeon, 4 cores, 15.6 GiB RAM, Node v22.14.0.
 
-This checkout had no API keys. I still ran the product cache functions instead of a fake Map. Repeat lookups still missed, which is the real behavior when Redis is unset: `getCachedReview` catches the error and returns null.
+This checkout had no API keys. I still ran the product cache functions instead of a fake Map. Repeat lookups still missed (0/10 in `cache.*`). Redis was unset, so that count is not published as an ok GS-T7 cache hit rate.
 
 | Metric | Result |
 |---|---|
 | Absent-claim rate | failed. `SARVAM_API_KEY` was unset, so `synthesizeReview` never ran. |
-| Cache hit rate | 0.0% (0 hits / 10 lookups). Redis unset. Cold pass plus repeat pass, 5 slugs. |
+| Cache hit rate | failed. Redis unset. Observed 0/10 hits stay in `cache.*`. Not published as 0%. |
 | Cost per query (INR) | failed. No live Sarvam usage tokens. Not reported as ₹0, because that would describe missing keys, not a query. Published 105B rates are INR-only (`https://docs.sarvam.ai/api/getting-started/pricing`, fetched 2026-08-25). |
 | Cost per query (USD) | failed. No published USD list price for sarvam-105b. No FX conversion. |
 | Firecrawl-only cost (USD) | n/a. No live Firecrawl calls. |
