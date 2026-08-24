@@ -107,17 +107,17 @@ Detailed product spec lives in `docs/spec.md`.
 
 ## Results
 
-GS-T7 ran at 2026-08-24T21:59:17.834Z against 5 products. Synthesis model is sarvam-105b. Hardware was an Intel Xeon, 8 cores, 15.6 GiB RAM, linux/x64, Node v20.19.2.
+GS-T7 ran at 2026-08-24T22:39:20.607Z against 5 products. Synthesis model is sarvam-105b. Hardware was an Intel Xeon, 8 cores, 15.6 GiB RAM, linux/x64, Node v20.19.2.
 
-`SARVAM_API_KEY`, `FIRECRAWL_API_KEY`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN` were set. `GEMINI_API_KEY` was not.
+`SARVAM_API_KEY`, `FIRECRAWL_API_KEY`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN` were set. `GEMINI_API_KEY` was not. All 10 instrument checks passed. Live calls: synthesizeReview=5, scrapeAllSources=2.
 
 | Metric | Result |
 |---|---|
-| Absent-claim rate | failed. No summaries produced. Synthesis chat call failed |
+| Absent-claim rate | ok. 0.7586 (22/29 summary claims not grounded in source text, overlap threshold 0.6) |
 | Cache hit rate | ok. 0.5 (5/10 hits). redisConfigured=true. |
-| Cost per query (INR) | failed. Synthesis did not run, so no sarvam-105b token usage is available for INR pricing. |
-| Cost per query (USD) | failed. No published USD list price for sarvam-105b. This bench will not invent an FX conversion from INR. |
-| Firecrawl-only cost (USD) | ok. 0.0384. Firecrawl-only, not a Sarvam USD price. 3 scrapeAllSources calls. Credits approximated as 3 searches plus 6 scrapes per product = 36 credits at $0.0032/credit Hobby yearly (firecrawl.dev/pricing). |
+| Cost per query (INR) | ok. 0.124858704. 5 sarvam-105b synthesize calls. Tokens prompt=9419 cached=640 completion=4921. Rates input ₹29.28 / cached ₹10.98 / output ₹73.2 per 1M tokens. https://docs.sarvam.ai/api/getting-started/pricing (INR, fetched 2026-08-25). |
+| Cost per query (USD) | failed. sarvam-105b list price is published in INR only. No published USD rate, so USD is failed rather than an invented FX conversion. |
+| Firecrawl-only cost (USD) | ok. 0.0384. Firecrawl-only, not a Sarvam USD price. 2 scrapeAllSources calls. Credits approximated as 3 searches plus 6 scrapes per product = 24 credits at $0.0032/credit Hobby yearly (firecrawl.dev/pricing). |
 
 Re-run with `npm run bench:gs-t7`. Raw JSON is `bench/gs-t7-results.json`.
 
