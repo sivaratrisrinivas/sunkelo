@@ -129,6 +129,43 @@ const SENTENCE_ABBREVIATIONS = new Set([
   "capt",
 ]);
 
+const WORD_NUMBERS: Record<string, string> = {
+  one: "1",
+  two: "2",
+  three: "3",
+  four: "4",
+  five: "5",
+  six: "6",
+  seven: "7",
+  eight: "8",
+  nine: "9",
+  ten: "10",
+  twelve: "12",
+};
+
+const BARE_NUMBER_UNITS = new Set([
+  "mah",
+  "ah",
+  "wh",
+  "kwh",
+  "w",
+  "kw",
+  "mw",
+  "hz",
+  "khz",
+  "mhz",
+  "ghz",
+  "mp",
+  "mm",
+  "cm",
+  "km",
+  "kg",
+  "gb",
+  "tb",
+  "mb",
+  "kb",
+]);
+
 function loadDotEnv(): void {
   for (const name of [".env.local", ".env"]) {
     const path = join(ROOT, name);
@@ -159,6 +196,10 @@ function envFlag(name: string): boolean {
   return Boolean(value && value.trim().length > 0);
 }
 
+function isNumberToken(token: string): boolean {
+  return /^\d+(?:\.\d+)?[a-z]*$/.test(token);
+}
+
 function tokenize(text: string): string[] {
   const normalized = text
     .toLowerCase()
@@ -171,9 +212,17 @@ function tokenize(text: string): string[] {
     if (token.length === 0) {
       continue;
     }
-    const peeled = /^(\d+(?:\.\d+)?)([a-z].*)$/.exec(token);
-    if (peeled && peeled[1] && peeled[2]) {
-      tokens.push(peeled[1], peeled[2]);
+    const asNumber = WORD_NUMBERS[token];
+    if (asNumber) {
+      tokens.push(asNumber);
+      continue;
+    }
+    const bound = /^(\d+(?:\.\d+)?)([a-z].*)$/.exec(token);
+    if (bound && bound[1] && bound[2]) {
+      tokens.push(token);
+      if (BARE_NUMBER_UNITS.has(bound[2])) {
+        tokens.push(bound[1]);
+      }
     } else {
       tokens.push(token);
     }
@@ -186,7 +235,7 @@ function contentTokens(text: string): string[] {
 }
 
 function numberTokens(text: string): string[] {
-  return tokenize(text).filter((token) => /^\d+(?:\.\d+)?$/.test(token));
+  return tokenize(text).filter((token) => isNumberToken(token));
 }
 
 function tokenBagOverlap(left: string, right: string): number {
@@ -345,6 +394,10 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
   const contradictionTokens = contentTokens(contradictionSource);
   const contradictionBag = tokenBagOverlap(contradictionClaim, contradictionSource);
   const claimNegation = judgeClaim("It is not a camera flagship.", "It is a camera flagship.");
+  const fiveStarSource = "The listing has 5-star reviews from buyers.";
+  const fiveGClaim = judgeClaim("The listing has 5G reviews from buyers.", fiveStarSource);
+  const sevenSource = "The phone gets seven years of OS updates.";
+  const sevenClaim = judgeClaim("The phone gets 7 years of OS updates.", sevenSource);
   return [
     {
       name: "grounded-claim-detected",
@@ -450,6 +503,32 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
       detail:
         `sourceHasNot=${contradictionTokens.includes("not")} bagOverlap=${contradictionBag.toFixed(4)} ` +
         `claimNegationOverlap=${claimNegation.overlap} norKept=${contentTokens("It is nor a camera flagship.").includes("nor")}`,
+    },
+    {
+      name: "five-g-not-five-star",
+      passed:
+        numberTokens("5G").includes("5g") &&
+        !numberTokens("5G").includes("5") &&
+        numberTokens("5000mAh").includes("5000mah") &&
+        numberTokens("5000mAh").includes("5000") &&
+        fiveGClaim.grounded === false &&
+        fiveGClaim.missingNumbers.includes("5g"),
+      detail:
+        `5G tokens=${numberTokens("5G").join(",") || "none"}; ` +
+        `5000mAh tokens=${numberTokens("5000mAh").join(",") || "none"}; ` +
+        `5G-vs-5-star grounded=${fiveGClaim.grounded} missing=${fiveGClaim.missingNumbers.join(",") || "none"}`,
+    },
+    {
+      name: "seven-years-grounds-as-7",
+      passed:
+        numberTokens("Seven years of updates").includes("7") &&
+        numberTokens("7 years of updates").includes("7") &&
+        sevenClaim.grounded === true &&
+        sevenClaim.missingNumbers.length === 0,
+      detail:
+        `sevenTokens=${numberTokens("Seven years of updates").join(",") || "none"}; ` +
+        `digitTokens=${numberTokens("7 years of updates").join(",") || "none"}; ` +
+        `grounded=${sevenClaim.grounded} overlap=${sevenClaim.overlap} missing=${sevenClaim.missingNumbers.join(",") || "none"}`,
     },
   ];
 }
@@ -861,7 +940,7 @@ async function main(): Promise<void> {
     },
     method: {
       absent_claims:
-        "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has a number token, or if it has no number token and at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). not, no, and nor are content tokens, not stopwords, so a source like 'not a camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
+        "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has a number token, or if it has no number token and at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. Bound number-unit tokens stay intact (5G stays 5g) and count as number tokens, so 5G does not match 5-star. When the suffix is a measurement unit such as mah, w, hz, or mp, the tokenizer also emits the bare number, so 5000mAh matches 5000mAh or 5000. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and maps word numbers one through ten and twelve to digits (seven becomes 7). not, no, and nor are content tokens, not stopwords, so a source like 'not a camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
       cache:
         "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
       cost:
