@@ -1,6 +1,6 @@
 {
   "task": "GS-T7",
-  "measured_at": "2026-08-24T21:20:13.413Z",
+  "measured_at": "2026-08-24T21:28:03.757Z",
   "model": "sarvam-m",
   "dataset_size": 5,
   "hardware": {
@@ -19,7 +19,7 @@
     "reason": "It is the only pipeline-level harness that already records cache hit vs miss on the query path, but it mocks scrape, synthesis, and Redis, so it cannot record live absent-claim rate or cost."
   },
   "method": {
-    "absent_claims": "Split the synthesized summary into sentences. Newlines and bullet/numbered list items are separate sentences. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999) and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
+    "absent_claims": "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
     "cache": "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
     "cost": "Count live Firecrawl and Sarvam calls this process actually made. Do not invent a billed query cost when those calls did not happen."
   },
@@ -59,7 +59,12 @@
     {
       "name": "sentence-split-abbreviation-and-bullets",
       "passed": true,
-      "detail": "rsClaims=2 rsNumbers=18999,5000; bulletClaims=2 bulletNumbers=5000|120"
+      "detail": "rsClaims=2 rsNumbers=18999,5000; bulletClaims=2 bulletNumbers=5000|120; specClaims=1 specNumbers=120,5000,33"
+    },
+    {
+      "name": "glued-rs-price-grounds",
+      "passed": true,
+      "detail": "tokens=18999/118999; 18999 grounded=true missing=none; 118999 grounded=true missing=none; 200000 grounded=false missing=200000"
     }
   ],
   "live_calls": {
