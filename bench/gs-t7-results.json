@@ -1,6 +1,6 @@
 {
   "task": "GS-T7",
-  "measured_at": "2026-08-24T21:58:00.570Z",
+  "measured_at": "2026-08-24T21:59:17.834Z",
   "model": "sarvam-105b",
   "dataset_size": 5,
   "hardware": {
@@ -8,9 +8,9 @@
     "platform": "linux",
     "arch": "x64",
     "cpuModel": "Intel(R) Xeon(R) Processor",
-    "cpuCount": 4,
+    "cpuCount": 8,
     "ramGiB": 15.6,
-    "node": "v22.14.0"
+    "node": "v20.19.2"
   },
   "command": "npm run bench:gs-t7",
   "closest_harness": {
@@ -24,11 +24,11 @@
     "cost": "If the API returns usage token counts, compute INR from the published sarvam-105b list price on https://docs.sarvam.ai/api/getting-started/pricing (fetched 2026-08-25): input ₹29.28, cached input ₹10.98, output ₹73.2 per 1M tokens, and cite that page. Do not invent a USD FX conversion for Sarvam. USD stays failed because there is no published USD rate. Firecrawl may have a separate published credit USD estimate, labeled Firecrawl-only, never as a Sarvam USD price. Do not publish a fake combined USD query price. Do not invent a billed cost when live calls did not happen."
   },
   "env": {
-    "SARVAM_API_KEY": false,
-    "FIRECRAWL_API_KEY": false,
+    "SARVAM_API_KEY": true,
+    "FIRECRAWL_API_KEY": true,
     "GEMINI_API_KEY": false,
-    "UPSTASH_REDIS_REST_URL": false,
-    "UPSTASH_REDIS_REST_TOKEN": false
+    "UPSTASH_REDIS_REST_URL": true,
+    "UPSTASH_REDIS_REST_TOKEN": true
   },
   "instrument_checks": [
     {
@@ -84,7 +84,7 @@
   ],
   "live_calls": {
     "synthesizeReview": 0,
-    "scrapeAllSources": 0,
+    "scrapeAllSources": 3,
     "estimatedInputChars": 0,
     "estimatedOutputChars": 0,
     "sarvamPromptTokens": null,
@@ -103,19 +103,19 @@
       "status": "failed",
       "value": null,
       "unit": "rate",
-      "error": "No summaries produced. SARVAM_API_KEY unset, synthesizeReview was not called"
+      "error": "No summaries produced. Synthesis chat call failed"
     },
     "cache_hit_rate": {
-      "status": "failed",
-      "value": null,
+      "status": "ok",
+      "value": 0.5,
       "unit": "rate",
-      "error": "Redis is unset (UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN missing). Observed 0/10 hits via product cache functions. This bench will not publish 0 as a GS-T7 cache hit rate, because that would describe missing Redis config, not a cache."
+      "detail": "5/10 hits. redisConfigured=true. Workload is 5 unique slugs, then the same 5 slugs again. A working cache should hit on the second pass. Expected hit rate if Redis works is 0.5."
     },
     "cost_per_query_inr": {
       "status": "failed",
       "value": null,
       "unit": "inr",
-      "error": "No live Firecrawl or Sarvam calls ran. SARVAM_API_KEY and FIRECRAWL_API_KEY are unset or every call failed. This bench will not report ₹0 as product cost, because that would describe the missing keys, not a query."
+      "error": "Synthesis did not run, so no sarvam-105b token usage is available for INR pricing."
     },
     "cost_per_query_usd": {
       "status": "failed",
@@ -123,16 +123,20 @@
       "unit": "usd",
       "error": "No published USD list price for sarvam-105b. This bench will not invent an FX conversion from INR."
     },
-    "firecrawl_only_cost_usd": null
+    "firecrawl_only_cost_usd": {
+      "status": "ok",
+      "value": 0.038400000000000004,
+      "unit": "usd",
+      "detail": "Firecrawl-only, not a Sarvam USD price. 3 scrapeAllSources calls. Credits approximated as 3 searches plus 6 scrapes per product = 36 credits at $0.0032/credit Hobby yearly (firecrawl.dev/pricing)."
+    }
   },
   "cache": {
     "lookups": 10,
-    "hits": 0,
-    "misses": 10,
-    "hitRate": 0,
-    "redisConfigured": false,
+    "hits": 5,
+    "misses": 5,
+    "hitRate": 0.5,
+    "redisConfigured": true,
     "notes": [
-      "UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN is unset. Product cache functions catch Redis errors and return null, so every lookup is a miss.",
       "Workload is 5 unique slugs, then the same 5 slugs again. A working cache should hit on the second pass. Expected hit rate if Redis works is 0.5."
     ],
     "perLookup": [
@@ -169,32 +173,32 @@
       {
         "slug": "gs-t7-xiaomi-redmi-note-15",
         "pass": "repeat",
-        "hit": false,
-        "via": "miss"
+        "hit": true,
+        "via": "localized"
       },
       {
         "slug": "gs-t7-apple-iphone-16",
         "pass": "repeat",
-        "hit": false,
-        "via": "miss"
+        "hit": true,
+        "via": "localized"
       },
       {
         "slug": "gs-t7-samsung-galaxy-s24",
         "pass": "repeat",
-        "hit": false,
-        "via": "miss"
+        "hit": true,
+        "via": "localized"
       },
       {
         "slug": "gs-t7-nothing-phone-2a",
         "pass": "repeat",
-        "hit": false,
-        "via": "miss"
+        "hit": true,
+        "via": "localized"
       },
       {
         "slug": "gs-t7-google-pixel-8a",
         "pass": "repeat",
-        "hit": false,
-        "via": "miss"
+        "hit": true,
+        "via": "localized"
       }
     ]
   },
@@ -202,12 +206,12 @@
     {
       "name": "Xiaomi Redmi Note 15",
       "slug": "gs-t7-xiaomi-redmi-note-15",
-      "sourceOrigin": "fixture",
-      "sourceLoadError": "FIRECRAWL_API_KEY unset",
-      "sourceCount": 3,
-      "sourceChars": 1275,
+      "sourceOrigin": "live-scrape",
+      "sourceLoadError": null,
+      "sourceCount": 10,
+      "sourceChars": 13592,
       "synthesisStatus": "failed",
-      "synthesisError": "SARVAM_API_KEY unset, synthesizeReview was not called",
+      "synthesisError": "Synthesis chat call failed",
       "summaryChars": null,
       "claims": 0,
       "absentClaims": 0,
@@ -218,11 +222,11 @@
       "name": "Apple iPhone 16",
       "slug": "gs-t7-apple-iphone-16",
       "sourceOrigin": "fixture",
-      "sourceLoadError": "FIRECRAWL_API_KEY unset",
+      "sourceLoadError": "live scrape returned 0 sources, falling back to fixtures",
       "sourceCount": 2,
       "sourceChars": 818,
       "synthesisStatus": "failed",
-      "synthesisError": "SARVAM_API_KEY unset, synthesizeReview was not called",
+      "synthesisError": "Synthesis chat call failed",
       "summaryChars": null,
       "claims": 0,
       "absentClaims": 0,
@@ -233,11 +237,11 @@
       "name": "Samsung Galaxy S24",
       "slug": "gs-t7-samsung-galaxy-s24",
       "sourceOrigin": "fixture",
-      "sourceLoadError": "FIRECRAWL_API_KEY unset",
+      "sourceLoadError": "live scrape returned 0 sources, falling back to fixtures",
       "sourceCount": 2,
       "sourceChars": 750,
       "synthesisStatus": "failed",
-      "synthesisError": "SARVAM_API_KEY unset, synthesizeReview was not called",
+      "synthesisError": "Synthesis chat call failed",
       "summaryChars": null,
       "claims": 0,
       "absentClaims": 0,
@@ -247,12 +251,12 @@
     {
       "name": "Nothing Phone 2a",
       "slug": "gs-t7-nothing-phone-2a",
-      "sourceOrigin": "fixture",
-      "sourceLoadError": "FIRECRAWL_API_KEY unset",
+      "sourceOrigin": "live-scrape",
+      "sourceLoadError": null,
       "sourceCount": 2,
-      "sourceChars": 674,
+      "sourceChars": 3955,
       "synthesisStatus": "failed",
-      "synthesisError": "SARVAM_API_KEY unset, synthesizeReview was not called",
+      "synthesisError": "Synthesis chat call failed",
       "summaryChars": null,
       "claims": 0,
       "absentClaims": 0,
@@ -262,12 +266,12 @@
     {
       "name": "Google Pixel 8a",
       "slug": "gs-t7-google-pixel-8a",
-      "sourceOrigin": "fixture",
-      "sourceLoadError": "FIRECRAWL_API_KEY unset",
-      "sourceCount": 2,
-      "sourceChars": 700,
+      "sourceOrigin": "live-scrape",
+      "sourceLoadError": null,
+      "sourceCount": 1,
+      "sourceChars": 57,
       "synthesisStatus": "failed",
-      "synthesisError": "SARVAM_API_KEY unset, synthesizeReview was not called",
+      "synthesisError": "Synthesis chat call failed",
       "summaryChars": null,
       "claims": 0,
       "absentClaims": 0,
@@ -277,8 +281,7 @@
   ],
   "failures": [
     "absent_claim_rate: no summaries",
-    "redis-missing",
-    "cost_per_query_inr: no live API calls",
+    "cost_per_query_inr: synthesis did not run",
     "cost_per_query_usd: no published USD rate"
   ]
 }
