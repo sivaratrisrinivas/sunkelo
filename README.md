@@ -116,7 +116,7 @@ This checkout had no API keys. I still ran the product cache functions instead o
 | Absent-claim rate | failed. `SARVAM_API_KEY` was unset, so `synthesizeReview` never ran. |
 | Cache hit rate | failed. Redis unset. Observed 0/10 hits stay in `cache.*`. Not published as 0%. |
 | Cost per query (INR) | failed. No live Sarvam usage tokens. Not reported as ₹0, because that would describe missing keys, not a query. Published 105B rates are INR-only (`https://docs.sarvam.ai/api/getting-started/pricing`, fetched 2026-08-25). |
-| Cost per query (USD) | failed. No published USD list price for sarvam-105b. No FX conversion. |
+| Cost per query (USD) | failed. No published USD list price for sarvam-105b. No FX conversion. No combined USD query price. |
 | Firecrawl-only cost (USD) | n/a. No live Firecrawl calls. |
 
 Re-run with `npm run bench:gs-t7`. Raw JSON is `bench/gs-t7-results.json`.

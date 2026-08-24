@@ -956,7 +956,7 @@ async function main(): Promise<void> {
       cache:
         "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map. Observed hits and lookups always stay in cache.*. If Redis is unset, cache_hit_rate is failed and redis-missing is recorded; do not publish status=ok with value=0 as a GS-T7 cache number. If Redis is configured, the live hit rate is an observed ok metric.",
       cost:
-        "If synthesizeReview returns API usage token counts, compute INR from the published sarvam-105b rates on https://docs.sarvam.ai/api/getting-started/pricing (fetched 2026-08-25): input ₹29.28, cached input ₹10.98, output ₹73.2 per 1M tokens. Do not convert INR to USD. USD stays failed because there is no published USD rate. Firecrawl may have a separate Hobby-credit USD estimate, labeled Firecrawl-only, never as a Sarvam USD price. Do not invent a billed cost when live calls did not happen.",
+        "If the API returns usage token counts, compute INR from the published sarvam-105b list price on https://docs.sarvam.ai/api/getting-started/pricing (fetched 2026-08-25): input ₹29.28, cached input ₹10.98, output ₹73.2 per 1M tokens, and cite that page. Do not invent a USD FX conversion for Sarvam. USD stays failed because there is no published USD rate. Firecrawl may have a separate published credit USD estimate, labeled Firecrawl-only, never as a Sarvam USD price. Do not publish a fake combined USD query price. Do not invent a billed cost when live calls did not happen.",
     },
     env: {
       SARVAM_API_KEY: envFlag("SARVAM_API_KEY"),
