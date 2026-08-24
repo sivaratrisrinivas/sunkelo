@@ -155,6 +155,7 @@ function tokenize(text: string): string[] {
   const normalized = text
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, " ")
+    .replace(/([a-z])\.(?=\d)/g, "$1 ")
     .replace(/(\d),(?=\d)/g, "$1");
   const tokens: string[] = [];
   for (const raw of normalized.split(/[^a-z0-9.]+/)) {
@@ -227,13 +228,8 @@ function splitLineSentences(line: string): string[] {
 }
 
 function splitBulletItems(line: string): string[] {
-  if (/^(?:[-*•]|\d+\.)\s+/.test(line)) {
-    return line
-      .split(/(?:^|\s+)(?:[-*•]|\d+\.)\s+/)
-      .map((part) => part.trim())
-      .filter((part) => part.length > 0);
-  }
-  return [line];
+  const stripped = line.replace(/^(?:[-*•]|\d+\.)\s+/, "").trim();
+  return stripped.length > 0 ? [stripped] : [];
 }
 
 function splitSentences(text: string): string[] {
@@ -293,6 +289,13 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
   const bulletSummary =
     "- Battery lasts 5000mAh all day.\n- 120Hz display looks bright outdoors.";
   const bulletClaims = extractSummaryClaims(bulletSummary);
+  const specBullet = "- 120Hz display - 5000mAh battery - 33W charging.";
+  const specClaims = extractSummaryClaims(specBullet);
+  const gluedSource = "Price in India starts around Rs.18,999 rupees.";
+  const gluedClaim = judgeClaim("Price in India starts around 18999 rupees.", gluedSource);
+  const gluedLakhSource = "The listing price is Rs.1,18,999 rupees today.";
+  const gluedLakhClaim = judgeClaim("The listing price is 118999 rupees today.", gluedLakhSource);
+  const gluedAbsent = judgeClaim("Price in India starts around 200000 rupees today.", gluedSource);
   return [
     {
       name: "grounded-claim-detected",
@@ -345,12 +348,34 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
         numberTokens(rsClaims[0] ?? "").includes("5000") &&
         bulletClaims.length === 2 &&
         numberTokens(bulletClaims[0] ?? "").includes("5000") &&
-        numberTokens(bulletClaims[1] ?? "").includes("120"),
+        numberTokens(bulletClaims[1] ?? "").includes("120") &&
+        specClaims.length === 1 &&
+        numberTokens(specClaims[0] ?? "").includes("120") &&
+        numberTokens(specClaims[0] ?? "").includes("5000") &&
+        numberTokens(specClaims[0] ?? "").includes("33"),
       detail:
         `rsClaims=${rsClaims.length} rsNumbers=${numberTokens(rsClaims[0] ?? "").join(",") || "none"}; ` +
         `bulletClaims=${bulletClaims.length} bulletNumbers=${bulletClaims
           .map((claim) => numberTokens(claim).join(",") || "none")
-          .join("|")}`,
+          .join("|")}; ` +
+        `specClaims=${specClaims.length} specNumbers=${numberTokens(specClaims[0] ?? "").join(",") || "none"}`,
+    },
+    {
+      name: "glued-rs-price-grounds",
+      passed:
+        numberTokens("Rs.18,999").includes("18999") &&
+        numberTokens("Rs.1,18,999").includes("118999") &&
+        gluedClaim.grounded === true &&
+        gluedClaim.missingNumbers.length === 0 &&
+        gluedLakhClaim.grounded === true &&
+        gluedLakhClaim.missingNumbers.length === 0 &&
+        gluedAbsent.grounded === false &&
+        gluedAbsent.missingNumbers.includes("200000"),
+      detail:
+        `tokens=${numberTokens("Rs.18,999").join(",") || "none"}/${numberTokens("Rs.1,18,999").join(",") || "none"}; ` +
+        `18999 grounded=${gluedClaim.grounded} missing=${gluedClaim.missingNumbers.join(",") || "none"}; ` +
+        `118999 grounded=${gluedLakhClaim.grounded} missing=${gluedLakhClaim.missingNumbers.join(",") || "none"}; ` +
+        `200000 grounded=${gluedAbsent.grounded} missing=${gluedAbsent.missingNumbers.join(",") || "none"}`,
     },
   ];
 }
@@ -704,7 +729,7 @@ async function main(): Promise<void> {
     },
     method: {
       absent_claims:
-        "Split the synthesized summary into sentences. Newlines and bullet/numbered list items are separate sentences. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999) and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
+        "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
       cache:
         "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
       cost:
