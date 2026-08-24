@@ -143,7 +143,7 @@ function contentTokens(text: string): string[] {
 }
 
 function numberTokens(text: string): string[] {
-  return text.toLowerCase().match(/\d+(?:\.\d+)?/g) ?? [];
+  return tokenize(text).filter((token) => /^\d+(?:\.\d+)?$/.test(token));
 }
 
 function extractSummaryClaims(summary: string): string[] {
@@ -155,10 +155,10 @@ function extractSummaryClaims(summary: string): string[] {
 
 function judgeClaim(claim: string, sourceText: string): ClaimJudgement {
   const sourceTokenSet = new Set(contentTokens(sourceText));
-  const sourceRaw = sourceText.toLowerCase();
+  const sourceNumberSet = new Set(numberTokens(sourceText));
   const claimTokens = contentTokens(claim);
   const nums = numberTokens(claim);
-  const missingNumbers = nums.filter((num) => !sourceRaw.includes(num));
+  const missingNumbers = nums.filter((num) => !sourceNumberSet.has(num));
   const overlapCount = claimTokens.filter((token) => sourceTokenSet.has(token)).length;
   const overlap = claimTokens.length === 0 ? 0 : overlapCount / claimTokens.length;
   const grounded = missingNumbers.length === 0 && overlap >= GROUNDING_OVERLAP;
@@ -170,6 +170,9 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
     "The phone has a 5000mAh battery and a 120Hz AMOLED display. Charging is 33W wired. Night photos show noise.";
   const grounded = judgeClaim("The 5000mAh battery and 120Hz AMOLED display last well.", source);
   const absent = judgeClaim("It includes a 200MP periscope zoom and satellite calling.", source);
+  const trapSource = "Capacity is 1200. Peak is 18.1. Serial 218.";
+  const trapClaim = "Capacity is 200. Peak is 18. Serial 18.";
+  const trap = judgeClaim(trapClaim, trapSource);
   return [
     {
       name: "grounded-claim-detected",
@@ -180,6 +183,14 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
       name: "absent-claim-detected",
       passed: absent.grounded === false,
       detail: `overlap=${absent.overlap} missingNumbers=${absent.missingNumbers.join(",") || "none"}`,
+    },
+    {
+      name: "number-token-not-substring",
+      passed:
+        trap.grounded === false &&
+        trap.missingNumbers.includes("200") &&
+        trap.missingNumbers.includes("18"),
+      detail: `grounded=${trap.grounded} overlap=${trap.overlap} missingNumbers=${trap.missingNumbers.join(",") || "none"}`,
     },
   ];
 }
@@ -519,7 +530,7 @@ async function main(): Promise<void> {
     },
     method: {
       absent_claims:
-        "Split the synthesized summary into sentences. A sentence is a claim if it has at least 4 content tokens. A claim is absent unless every number in it appears in source text and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing.",
+        "Split the synthesized summary into sentences. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing.",
       cache:
         "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
       cost:
