@@ -72,7 +72,7 @@ type ProductRow = {
   claims: number;
   absentClaims: number;
   absentClaimRate: number | null;
-  claimDetails: ClaimJudgement[];
+  claimDetails: ClaimJudgement[] | null;
 };
 
 type MetricOk = {
@@ -98,6 +98,28 @@ const STOPWORDS = new Set(
    has have had do does did about over under again still only other another both each few
    many much such same own too when where which who whom why how`.split(/\s+/),
 );
+
+const SENTENCE_ABBREVIATIONS = new Set([
+  "rs",
+  "mr",
+  "mrs",
+  "ms",
+  "dr",
+  "sr",
+  "jr",
+  "vs",
+  "etc",
+  "inc",
+  "ltd",
+  "pvt",
+  "co",
+  "st",
+  "prof",
+  "approx",
+  "gen",
+  "col",
+  "capt",
+]);
 
 function loadDotEnv(): void {
   for (const name of [".env.local", ".env"]) {
@@ -133,7 +155,7 @@ function tokenize(text: string): string[] {
   const normalized = text
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, " ")
-    .replace(/\d{1,3}(?:,\d{3})+(?:\.\d+)?/g, (match) => match.replace(/,/g, ""));
+    .replace(/(\d),(?=\d)/g, "$1");
   const tokens: string[] = [];
   for (const raw of normalized.split(/[^a-z0-9.]+/)) {
     const token = raw.replace(/^\.+|\.+$/g, "");
@@ -158,11 +180,82 @@ function numberTokens(text: string): string[] {
   return tokenize(text).filter((token) => /^\d+(?:\.\d+)?$/.test(token));
 }
 
+function isAbbreviationPeriod(text: string, periodIndex: number): boolean {
+  let start = periodIndex - 1;
+  while (start >= 0 && /[a-z]/i.test(text[start] ?? "")) {
+    start -= 1;
+  }
+  const word = text.slice(start + 1, periodIndex).toLowerCase();
+  return word.length === 1 || SENTENCE_ABBREVIATIONS.has(word);
+}
+
+function splitLineSentences(line: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (ch !== "." && ch !== "!" && ch !== "?") {
+      continue;
+    }
+    let end = i;
+    while (
+      end + 1 < line.length &&
+      (line[end + 1] === "." || line[end + 1] === "!" || line[end + 1] === "?")
+    ) {
+      end += 1;
+    }
+    const after = line.slice(end + 1);
+    const boundary = after.length === 0 || /^\s/.test(after);
+    if (!boundary) {
+      continue;
+    }
+    if (ch === "." && isAbbreviationPeriod(line, i)) {
+      continue;
+    }
+    const chunk = line.slice(start, end + 1).trim();
+    if (chunk.length > 0) {
+      parts.push(chunk);
+    }
+    start = end + 1;
+    i = end;
+  }
+  const tail = line.slice(start).trim();
+  if (tail.length > 0) {
+    parts.push(tail);
+  }
+  return parts;
+}
+
+function splitBulletItems(line: string): string[] {
+  if (/^(?:[-*•]|\d+\.)\s+/.test(line)) {
+    return line
+      .split(/(?:^|\s+)(?:[-*•]|\d+\.)\s+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+  }
+  return [line];
+}
+
+function splitSentences(text: string): string[] {
+  const sentences: string[] = [];
+  for (const rawLine of text.split(/\n+/)) {
+    const line = rawLine.trim();
+    if (line.length === 0) {
+      continue;
+    }
+    for (const item of splitBulletItems(line)) {
+      for (const sentence of splitLineSentences(item)) {
+        if (sentence.length > 0) {
+          sentences.push(sentence);
+        }
+      }
+    }
+  }
+  return sentences;
+}
+
 function extractSummaryClaims(summary: string): string[] {
-  return summary
-    .split(/(?<=[.!?])\s+/)
-    .map((part) => part.trim())
-    .filter((part) => contentTokens(part).length >= 4);
+  return splitSentences(summary).filter((part) => contentTokens(part).length >= 4);
 }
 
 function judgeClaim(claim: string, sourceText: string): ClaimJudgement {
@@ -188,6 +281,18 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
   const unitSource = "The battery capacity is 5000mAh in this test.";
   const unitFalse = judgeClaim("The battery capacity is 500 in this test.", unitSource);
   const unitTrue = judgeClaim("The battery capacity is 5000 in this test.", unitSource);
+  const commaSource = "Price in India starts around 18,999 rupees.";
+  const commaClaim = judgeClaim("Price in India starts around 18999 rupees.", commaSource);
+  const lakhSource = "The listing price is 1,18,999 rupees today.";
+  const lakhClaim = judgeClaim("The listing price is 118999 rupees today.", lakhSource);
+  const shortNumbered = "Battery lasts 5000mAh all day.";
+  const shortClaims = extractSummaryClaims(shortNumbered);
+  const rsSummary =
+    "Price starts at Rs. 18,999 and the 5000mAh battery lasts a day. Night photos show heavy noise indoors.";
+  const rsClaims = extractSummaryClaims(rsSummary);
+  const bulletSummary =
+    "- Battery lasts 5000mAh all day.\n- 120Hz display looks bright outdoors.";
+  const bulletClaims = extractSummaryClaims(bulletSummary);
   return [
     {
       name: "grounded-claim-detected",
@@ -213,6 +318,39 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
         `200-in-1200/18-in-18.1 grounded=${trap.grounded} missing=${trap.missingNumbers.join(",") || "none"}; ` +
         `500-vs-5000mAh grounded=${unitFalse.grounded} missing=${unitFalse.missingNumbers.join(",") || "none"}; ` +
         `5000-vs-5000mAh grounded=${unitTrue.grounded} missing=${unitTrue.missingNumbers.join(",") || "none"}`,
+    },
+    {
+      name: "thousands-separator-grounds",
+      passed:
+        commaClaim.grounded === true &&
+        commaClaim.missingNumbers.length === 0 &&
+        lakhClaim.grounded === true &&
+        lakhClaim.missingNumbers.length === 0,
+      detail:
+        `18,999-vs-18999 grounded=${commaClaim.grounded} missing=${commaClaim.missingNumbers.join(",") || "none"}; ` +
+        `1,18,999-vs-118999 grounded=${lakhClaim.grounded} missing=${lakhClaim.missingNumbers.join(",") || "none"}`,
+    },
+    {
+      name: "short-numbered-sentence-kept",
+      passed:
+        shortClaims.length === 1 && numberTokens(shortClaims[0] ?? "").includes("5000"),
+      detail: `count=${shortClaims.length} numbers=${numberTokens(shortClaims[0] ?? "").join(",") || "none"}`,
+    },
+    {
+      name: "sentence-split-abbreviation-and-bullets",
+      passed:
+        rsClaims.length === 2 &&
+        /rs\./i.test(rsClaims[0] ?? "") &&
+        numberTokens(rsClaims[0] ?? "").includes("18999") &&
+        numberTokens(rsClaims[0] ?? "").includes("5000") &&
+        bulletClaims.length === 2 &&
+        numberTokens(bulletClaims[0] ?? "").includes("5000") &&
+        numberTokens(bulletClaims[1] ?? "").includes("120"),
+      detail:
+        `rsClaims=${rsClaims.length} rsNumbers=${numberTokens(rsClaims[0] ?? "").join(",") || "none"}; ` +
+        `bulletClaims=${bulletClaims.length} bulletNumbers=${bulletClaims
+          .map((claim) => numberTokens(claim).join(",") || "none")
+          .join("|")}`,
     },
   ];
 }
@@ -426,16 +564,20 @@ async function main(): Promise<void> {
         summary = synthesized.summary;
         estimatedInputChars += sourceText.length;
         estimatedOutputChars += synthesized.summary.length + synthesized.tldr.length;
-        for (const claim of extractSummaryClaims(synthesized.summary)) {
-          claimDetails.push(judgeClaim(claim, sourceText));
+        if (!instrumentFailed) {
+          for (const claim of extractSummaryClaims(synthesized.summary)) {
+            claimDetails.push(judgeClaim(claim, sourceText));
+          }
         }
       } catch (error) {
         synthesisError = error instanceof Error ? error.message : String(error);
       }
     }
 
-    const claims = claimDetails.length;
-    const absentClaims = claimDetails.filter((row) => !row.grounded).length;
+    const claims = instrumentFailed ? 0 : claimDetails.length;
+    const absentClaims = instrumentFailed
+      ? 0
+      : claimDetails.filter((row) => !row.grounded).length;
 
     productRows.push({
       name: product.name,
@@ -449,8 +591,8 @@ async function main(): Promise<void> {
       summaryChars: summary ? summary.length : null,
       claims,
       absentClaims,
-      absentClaimRate: claims === 0 ? null : absentClaims / claims,
-      claimDetails,
+      absentClaimRate: instrumentFailed || claims === 0 ? null : absentClaims / claims,
+      claimDetails: instrumentFailed ? null : claimDetails,
     });
   }
 
@@ -562,7 +704,7 @@ async function main(): Promise<void> {
     },
     method: {
       absent_claims:
-        "Split the synthesized summary into sentences. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer strips thousands separators (18,999 becomes 18999) and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed and no rate is published.",
+        "Split the synthesized summary into sentences. Newlines and bullet/numbered list items are separate sentences. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999) and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
       cache:
         "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
       cost:
