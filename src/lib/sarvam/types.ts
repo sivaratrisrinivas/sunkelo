@@ -22,8 +22,23 @@ const messageSchema = z.object({
 export const chatCompletionRequestSchema = z.object({
   model: z.string().min(1),
   temperature: z.number().min(0).max(2).optional(),
+  max_tokens: z.number().int().positive().optional(),
+  reasoning_effort: z.null().optional(),
   messages: z.array(messageSchema).min(1),
 });
+
+export const chatCompletionUsageSchema = z
+  .object({
+    prompt_tokens: z.number().nonnegative().optional(),
+    completion_tokens: z.number().nonnegative().optional(),
+    total_tokens: z.number().nonnegative().optional(),
+    prompt_tokens_details: z
+      .object({
+        cached_tokens: z.number().nonnegative().optional(),
+      })
+      .optional(),
+  })
+  .optional();
 
 export const chatCompletionResponseSchema = z.object({
   id: z.string().optional(),
@@ -34,12 +49,13 @@ export const chatCompletionResponseSchema = z.object({
         finish_reason: z.enum(["stop", "length", "tool_calls", "content_filter"]),
         message: z.object({
           role: z.string().optional(),
-          content: z.string().min(1),
+          content: z.string().nullable().optional(),
           reasoning_content: z.string().optional(),
         }),
       }),
     )
     .min(1),
+  usage: chatCompletionUsageSchema,
 });
 
 export type ChatCompletionMessage = z.infer<typeof messageSchema>;

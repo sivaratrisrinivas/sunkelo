@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { createChatCompletion } from "@/lib/sarvam/chat";
+import {
+  addChatUsage,
+  createChatCompletion,
+  SARVAM_CHAT_MODEL,
+  type ChatCompletionUsage,
+} from "@/lib/sarvam/chat";
 import type { NormalizedReviewSource } from "@/lib/pipeline/normalize-sources";
 
 export const synthesizedReviewSchema = z.object({
@@ -40,6 +45,10 @@ export const synthesizedReviewSchema = z.object({
 });
 
 export type SynthesizedReview = z.infer<typeof synthesizedReviewSchema>;
+
+export type SynthesizeReviewResult = SynthesizedReview & {
+  sarvamUsage: ChatCompletionUsage | null;
+};
 
 export class SynthesisError extends Error {
   public readonly details?: Record<string, unknown>;
@@ -480,7 +489,7 @@ export async function synthesizeReview(params: {
   traceId?: string;
   productName: string;
   sources: NormalizedReviewSource[];
-}): Promise<SynthesizedReview> {
+}): Promise<SynthesizeReviewResult> {
   const sourceSizeStats = params.sources.map((source, index) => ({
     index: index + 1,
     type: source.type,
@@ -524,15 +533,20 @@ export async function synthesizeReview(params: {
   }
 
   let content: string;
+  let usage: ChatCompletionUsage | null = null;
   try {
-    content = await createChatCompletion({
-      model: "sarvam-m",
+    const completion = await createChatCompletion({
+      model: SARVAM_CHAT_MODEL,
       temperature: 0.3,
+      maxTokens: 4096,
+      reasoningEffort: null,
       messages: [
         { role: "system", content: SYNTHESIS_SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
     });
+    content = completion.content;
+    usage = completion.usage;
   } catch (error) {
     console.error("[synthesize] initial chat call failed", {
       traceId: params.traceId,
@@ -548,16 +562,18 @@ export async function synthesizeReview(params: {
 
   try {
     const parsedJson = JSON.parse(extractJsonObject(content));
-    return coerceReviewShape(parsedJson, params.sources);
+    return { ...coerceReviewShape(parsedJson, params.sources), sarvamUsage: usage };
   } catch {
     console.warn("[synthesize] initial parse failed, using text fallback", {
       traceId: params.traceId,
       productName: params.productName,
     });
     try {
-      const textFallback = await createChatCompletion({
-        model: "sarvam-m",
+      const fallbackCompletion = await createChatCompletion({
+        model: SARVAM_CHAT_MODEL,
         temperature: 0,
+        maxTokens: 4096,
+        reasoningEffort: null,
         messages: [
           { role: "system", content: TEXT_FALLBACK_SYSTEM_PROMPT },
           {
@@ -573,13 +589,14 @@ export async function synthesizeReview(params: {
           },
         ],
       });
-      const parsed = parseTextFallback(textFallback, params.sources);
+      const parsed = parseTextFallback(fallbackCompletion.content, params.sources);
+      usage = addChatUsage(usage, fallbackCompletion.usage);
       console.info("[synthesize] text fallback succeeded", {
         traceId: params.traceId,
         productName: params.productName,
         sourceCount: parsed.sources.length,
       });
-      return parsed;
+      return { ...parsed, sarvamUsage: usage };
     } catch (fallbackError) {
       if (fallbackError instanceof SynthesisError) {
         throw fallbackError;

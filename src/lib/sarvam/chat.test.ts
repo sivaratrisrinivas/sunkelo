@@ -27,7 +27,7 @@ describe("createChatCompletion", () => {
       ),
     );
 
-    const content = await createChatCompletion({
+    const result = await createChatCompletion({
       messages: [
         { role: "system", content: "Extract entity" },
         { role: "user", content: "Redmi Note 15 kaisa hai?" },
@@ -36,7 +36,55 @@ describe("createChatCompletion", () => {
       temperature: 0.1,
     });
 
-    expect(content).toContain('"intent":"product_review"');
+    expect(result.content).toContain('"intent":"product_review"');
+  });
+
+  it("sends sarvam-105b with reasoning disabled and subscription key by default", async () => {
+    const { createChatCompletion, SARVAM_CHAT_MODEL } = await import("./chat");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              finish_reason: "stop",
+              message: { content: '{"ok":true}' },
+            },
+          ],
+          usage: {
+            prompt_tokens: 10,
+            completion_tokens: 4,
+            prompt_tokens_details: { cached_tokens: 2 },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await createChatCompletion({
+      messages: [{ role: "user", content: "ping" }],
+      reasoningEffort: null,
+      maxTokens: 4096,
+    });
+
+    expect(SARVAM_CHAT_MODEL).toBe("sarvam-105b");
+    expect(result.content).toBe('{"ok":true}');
+    expect(result.usage).toEqual({
+      promptTokens: 10,
+      cachedPromptTokens: 2,
+      completionTokens: 4,
+    });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.sarvam.ai/v1/chat/completions");
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer test-key");
+    expect(headers["api-subscription-key"]).toBe("test-key");
+    expect(JSON.parse(String(init.body))).toEqual(
+      expect.objectContaining({
+        model: "sarvam-105b",
+        reasoning_effort: null,
+        max_tokens: 4096,
+      }),
+    );
   });
 
   it("throws RateLimitError on 429", async () => {

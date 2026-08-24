@@ -12,21 +12,78 @@ export class RateLimitError extends Error {
   }
 }
 
+export const SARVAM_CHAT_MODEL = "sarvam-105b";
+
+export type ChatCompletionUsage = {
+  promptTokens: number;
+  cachedPromptTokens: number;
+  completionTokens: number;
+};
+
+export type ChatCompletionResult = {
+  content: string;
+  usage: ChatCompletionUsage | null;
+};
+
 type ChatCompletionInput = {
   messages: ChatCompletionMessage[];
   model?: string;
   temperature?: number;
+  maxTokens?: number;
+  reasoningEffort?: null;
 };
+
+function parseUsage(
+  usage:
+    | {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        prompt_tokens_details?: { cached_tokens?: number };
+      }
+    | undefined,
+): ChatCompletionUsage | null {
+  if (!usage) {
+    return null;
+  }
+  const promptTokens = usage.prompt_tokens;
+  const completionTokens = usage.completion_tokens;
+  if (typeof promptTokens !== "number" && typeof completionTokens !== "number") {
+    return null;
+  }
+  return {
+    promptTokens: promptTokens ?? 0,
+    cachedPromptTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
+    completionTokens: completionTokens ?? 0,
+  };
+}
+
+export function addChatUsage(
+  left: ChatCompletionUsage | null,
+  right: ChatCompletionUsage | null,
+): ChatCompletionUsage | null {
+  if (!left && !right) {
+    return null;
+  }
+  return {
+    promptTokens: (left?.promptTokens ?? 0) + (right?.promptTokens ?? 0),
+    cachedPromptTokens: (left?.cachedPromptTokens ?? 0) + (right?.cachedPromptTokens ?? 0),
+    completionTokens: (left?.completionTokens ?? 0) + (right?.completionTokens ?? 0),
+  };
+}
 
 export async function createChatCompletion({
   messages,
-  model = "sarvam-m",
+  model = SARVAM_CHAT_MODEL,
   temperature = 0.1,
-}: ChatCompletionInput): Promise<string> {
+  maxTokens,
+  reasoningEffort,
+}: ChatCompletionInput): Promise<ChatCompletionResult> {
   const payload = chatCompletionRequestSchema.parse({
     model,
     temperature,
     messages,
+    max_tokens: maxTokens,
+    reasoning_effort: reasoningEffort,
   });
   const client = getSarvamClient();
   const payloadJson = JSON.stringify(payload);
@@ -40,6 +97,7 @@ export async function createChatCompletion({
     method: "POST",
     headers: {
       Authorization: `Bearer ${client.apiKey}`,
+      "api-subscription-key": client.apiKey,
       "Content-Type": "application/json",
     },
     body: payloadJson,
@@ -70,5 +128,15 @@ export async function createChatCompletion({
   }
 
   const parsed = chatCompletionResponseSchema.parse(await response.json());
-  return parsed.choices[0].message.content.trim();
+  const content = parsed.choices[0].message.content?.trim() ?? "";
+  if (!content) {
+    throw new SarvamError(
+      "Sarvam returned empty content; reasoning tokens may have consumed max_tokens",
+      response.status,
+    );
+  }
+  return {
+    content,
+    usage: parseUsage(parsed.usage),
+  };
 }

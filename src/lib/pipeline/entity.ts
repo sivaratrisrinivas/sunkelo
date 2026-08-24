@@ -34,7 +34,7 @@ function extractJson(value: string): string {
 }
 
 export async function extractIntentAndEntity(query: string): Promise<ExtractedEntity> {
-  const content = await createChatCompletion({
+  const { content } = await createChatCompletion({
     model: "sarvam-m",
     temperature: 0.1,
     messages: [

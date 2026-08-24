@@ -26,7 +26,7 @@ export async function getLocalizedErrorMessage(
   }
 
   try {
-    const translated = await createChatCompletion({
+    const { content: translated } = await createChatCompletion({
       model: "sarvam-m",
       temperature: 0,
       messages: [

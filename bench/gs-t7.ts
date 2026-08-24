@@ -23,6 +23,7 @@ import {
 import { scrapeAllSources } from "../src/lib/firecrawl/scraper";
 import type { NormalizedReviewSource } from "../src/lib/pipeline/normalize-sources";
 import { synthesizeReview } from "../src/lib/pipeline/synthesize";
+import { addChatUsage, SARVAM_CHAT_MODEL, type ChatCompletionUsage } from "../src/lib/sarvam/chat";
 import { toSlug } from "../src/lib/utils/slug";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -30,9 +31,16 @@ const ROOT = join(HERE, "..");
 const DATASET_PATH = join(HERE, "dataset.json");
 const RESULTS_PATH = join(HERE, "gs-t7-results.json");
 
-const SYNTHESIS_MODEL = "sarvam-m";
+const SYNTHESIS_MODEL = SARVAM_CHAT_MODEL;
 const GROUNDING_OVERLAP = 0.6;
 const LANGUAGE = "en-IN";
+const SARVAM_105B_PRICING = {
+  source: "https://docs.sarvam.ai/api/getting-started/pricing",
+  fetched: "2026-08-25",
+  inputInrPerMillion: 29.28,
+  cachedInputInrPerMillion: 10.98,
+  outputInrPerMillion: 73.2,
+} as const;
 
 type DatasetSource = {
   title: string;
@@ -94,7 +102,7 @@ type Metric = MetricOk | MetricFailed;
 const STOPWORDS = new Set(
   `a an the and or but if then than so as at by for from in into of on onto to with without
    is are was were be been being it its this that these those they them their you your we our
-   he she his her not no nor very more most less least also just can could should would will
+   he she his her very more most less least also just can could should would will
    has have had do does did about over under again still only other another both each few
    many much such same own too when where which who whom why how`.split(/\s+/),
 );
@@ -179,6 +187,29 @@ function contentTokens(text: string): string[] {
 
 function numberTokens(text: string): string[] {
   return tokenize(text).filter((token) => /^\d+(?:\.\d+)?$/.test(token));
+}
+
+function tokenBagOverlap(left: string, right: string): number {
+  const leftSet = new Set(contentTokens(left));
+  const rightSet = new Set(contentTokens(right));
+  const intersection = [...leftSet].filter((token) => rightSet.has(token)).length;
+  const union = new Set([...leftSet, ...rightSet]).size;
+  return union === 0 ? 0 : intersection / union;
+}
+
+function inrFromSarvamUsage(usage: {
+  promptTokens: number;
+  cachedPromptTokens: number;
+  completionTokens: number;
+}): number {
+  const cached = Math.min(usage.cachedPromptTokens, usage.promptTokens);
+  const uncached = Math.max(0, usage.promptTokens - cached);
+  return (
+    (uncached * SARVAM_105B_PRICING.inputInrPerMillion +
+      cached * SARVAM_105B_PRICING.cachedInputInrPerMillion +
+      usage.completionTokens * SARVAM_105B_PRICING.outputInrPerMillion) /
+    1_000_000
+  );
 }
 
 function isAbbreviationPeriod(text: string, periodIndex: number): boolean {
@@ -296,6 +327,11 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
   const gluedLakhSource = "The listing price is Rs.1,18,999 rupees today.";
   const gluedLakhClaim = judgeClaim("The listing price is 118999 rupees today.", gluedLakhSource);
   const gluedAbsent = judgeClaim("Price in India starts around 200000 rupees today.", gluedSource);
+  const contradictionSource = "It is not a camera flagship.";
+  const contradictionClaim = "It is a camera flagship.";
+  const contradictionTokens = contentTokens(contradictionSource);
+  const contradictionBag = tokenBagOverlap(contradictionClaim, contradictionSource);
+  const claimNegation = judgeClaim("It is not a camera flagship.", "It is a camera flagship.");
   return [
     {
       name: "grounded-claim-detected",
@@ -376,6 +412,17 @@ function instrumentChecks(): Array<{ name: string; passed: boolean; detail: stri
         `18999 grounded=${gluedClaim.grounded} missing=${gluedClaim.missingNumbers.join(",") || "none"}; ` +
         `118999 grounded=${gluedLakhClaim.grounded} missing=${gluedLakhClaim.missingNumbers.join(",") || "none"}; ` +
         `200000 grounded=${gluedAbsent.grounded} missing=${gluedAbsent.missingNumbers.join(",") || "none"}`,
+    },
+    {
+      name: "negation-not-stopword",
+      passed:
+        contradictionTokens.includes("not") &&
+        contentTokens("It is nor a camera flagship.").includes("nor") &&
+        contradictionBag < 1 &&
+        claimNegation.overlap < 1,
+      detail:
+        `sourceHasNot=${contradictionTokens.includes("not")} bagOverlap=${contradictionBag.toFixed(4)} ` +
+        `claimNegationOverlap=${claimNegation.overlap} norKept=${contentTokens("It is nor a camera flagship.").includes("nor")}`,
     },
   ];
 }
@@ -540,6 +587,9 @@ function formatMetric(metric: Metric): string {
   if (metric.unit === "usd") {
     return `$${metric.value.toFixed(4)} (${metric.detail})`;
   }
+  if (metric.unit === "inr") {
+    return `₹${metric.value.toFixed(6)} (${metric.detail})`;
+  }
   return `${metric.value} ${metric.unit} (${metric.detail})`;
 }
 
@@ -561,6 +611,7 @@ async function main(): Promise<void> {
   let liveScrapeCalls = 0;
   let estimatedInputChars = 0;
   let estimatedOutputChars = 0;
+  let totalSarvamUsage: ChatCompletionUsage | null = null;
 
   for (const product of dataset.products) {
     const slug = `gs-t7-${toSlug(product.name)}`;
@@ -589,6 +640,7 @@ async function main(): Promise<void> {
         summary = synthesized.summary;
         estimatedInputChars += sourceText.length;
         estimatedOutputChars += synthesized.summary.length + synthesized.tldr.length;
+        totalSarvamUsage = addChatUsage(totalSarvamUsage, synthesized.sarvamUsage);
         if (!instrumentFailed) {
           for (const claim of extractSummaryClaims(synthesized.summary)) {
             claimDetails.push(judgeClaim(claim, sourceText));
@@ -683,34 +735,87 @@ async function main(): Promise<void> {
     detail: `${cache.hits}/${cache.lookups} hits. redisConfigured=${cache.redisConfigured}. ${cache.notes.join(" ")}`,
   };
 
-  let costMetric: Metric;
+  let costInrMetric: Metric;
+  let costUsdMetric: Metric;
+  let firecrawlOnlyUsdMetric: Metric | null = null;
+  const pricingCite = `${SARVAM_105B_PRICING.source} (INR, fetched ${SARVAM_105B_PRICING.fetched})`;
   if (liveSynthesisCalls === 0 && liveScrapeCalls === 0) {
-    costMetric = {
+    costInrMetric = {
+      status: "failed",
+      value: null,
+      unit: "inr",
+      error:
+        "No live Firecrawl or Sarvam calls ran. SARVAM_API_KEY and FIRECRAWL_API_KEY are unset or every call failed. This bench will not report ₹0 as product cost, because that would describe the missing keys, not a query.",
+    };
+    costUsdMetric = {
       status: "failed",
       value: null,
       unit: "usd",
       error:
-        "No live Firecrawl or Sarvam calls ran. SARVAM_API_KEY and FIRECRAWL_API_KEY are unset or every call failed. This bench will not report $0 as product cost, because that would describe the missing keys, not a query.",
+        "No published USD list price for sarvam-105b. This bench will not invent an FX conversion from INR.",
     };
-    failures.push("cost_per_query: no live API calls");
+    failures.push("cost_per_query_inr: no live API calls");
+    failures.push("cost_per_query_usd: no published USD rate");
+  } else if (liveSynthesisCalls > 0 && totalSarvamUsage) {
+    const totalInr = inrFromSarvamUsage(totalSarvamUsage);
+    costInrMetric = {
+      status: "ok",
+      value: totalInr / liveSynthesisCalls,
+      unit: "inr",
+      detail:
+        `${liveSynthesisCalls} sarvam-105b synthesize calls. Tokens prompt=${totalSarvamUsage.promptTokens} cached=${totalSarvamUsage.cachedPromptTokens} completion=${totalSarvamUsage.completionTokens}. Rates input ₹${SARVAM_105B_PRICING.inputInrPerMillion} / cached ₹${SARVAM_105B_PRICING.cachedInputInrPerMillion} / output ₹${SARVAM_105B_PRICING.outputInrPerMillion} per 1M tokens. ${pricingCite}.`,
+    };
+    costUsdMetric = {
+      status: "failed",
+      value: null,
+      unit: "usd",
+      error:
+        "sarvam-105b list price is published in INR only. No published USD rate, so USD is failed rather than an invented FX conversion.",
+    };
+    failures.push("cost_per_query_usd: no published USD rate");
   } else if (liveSynthesisCalls > 0) {
-    costMetric = {
+    costInrMetric = {
+      status: "failed",
+      value: null,
+      unit: "inr",
+      error:
+        `Ran ${liveSynthesisCalls} sarvam-105b synthesize calls but the API returned no usage token counts, so INR cannot be computed from ${pricingCite}.`,
+    };
+    costUsdMetric = {
       status: "failed",
       value: null,
       unit: "usd",
       error:
-        `Ran ${liveSynthesisCalls} sarvam-m synthesize calls and ${liveScrapeCalls} Firecrawl scrapes. Official sarvam-m chat list price is unpublished on docs.sarvam.ai as of 2026-08-24. Estimated chars input=${estimatedInputChars} output=${estimatedOutputChars}. Firecrawl Hobby yearly equivalent is about $0.0032 per credit, but this run will not mint a query price without a published sarvam-m rate.`,
+        "sarvam-105b list price is published in INR only. No published USD rate, so USD is failed rather than an invented FX conversion.",
     };
-    failures.push("cost_per_query: sarvam-m list price unpublished");
+    failures.push("cost_per_query_inr: no usage token counts");
+    failures.push("cost_per_query_usd: no published USD rate");
   } else {
+    costInrMetric = {
+      status: "failed",
+      value: null,
+      unit: "inr",
+      error: "Synthesis did not run, so no sarvam-105b token usage is available for INR pricing.",
+    };
+    costUsdMetric = {
+      status: "failed",
+      value: null,
+      unit: "usd",
+      error:
+        "No published USD list price for sarvam-105b. This bench will not invent an FX conversion from INR.",
+    };
+    failures.push("cost_per_query_inr: synthesis did not run");
+    failures.push("cost_per_query_usd: no published USD rate");
+  }
+  if (liveScrapeCalls > 0) {
     const firecrawlCreditsApprox = liveScrapeCalls * (3 * 2 + 6);
     const usd = firecrawlCreditsApprox * 0.0032;
-    costMetric = {
+    firecrawlOnlyUsdMetric = {
       status: "ok",
       value: usd / Math.max(liveScrapeCalls, 1),
       unit: "usd",
       detail:
-        `Firecrawl-only estimate. ${liveScrapeCalls} scrapeAllSources calls. Credits approximated as 3 searches plus 6 scrapes per product = ${firecrawlCreditsApprox} credits at $0.0032/credit Hobby yearly (firecrawl.dev/pricing). Synthesis did not run.`,
+        `Firecrawl-only, not a Sarvam USD price. ${liveScrapeCalls} scrapeAllSources calls. Credits approximated as 3 searches plus 6 scrapes per product = ${firecrawlCreditsApprox} credits at $0.0032/credit Hobby yearly (firecrawl.dev/pricing).`,
     };
   }
 
@@ -729,11 +834,11 @@ async function main(): Promise<void> {
     },
     method: {
       absent_claims:
-        "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
+        "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). not, no, and nor are content tokens, not stopwords, so a source like 'not a camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
       cache:
         "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
       cost:
-        "Count live Firecrawl and Sarvam calls this process actually made. Do not invent a billed query cost when those calls did not happen.",
+        "If synthesizeReview returns API usage token counts, compute INR from the published sarvam-105b rates on https://docs.sarvam.ai/api/getting-started/pricing (fetched 2026-08-25): input ₹29.28, cached input ₹10.98, output ₹73.2 per 1M tokens. Do not convert INR to USD. USD stays failed because there is no published USD rate. Firecrawl may have a separate Hobby-credit USD estimate, labeled Firecrawl-only, never as a Sarvam USD price. Do not invent a billed cost when live calls did not happen.",
     },
     env: {
       SARVAM_API_KEY: envFlag("SARVAM_API_KEY"),
@@ -748,11 +853,17 @@ async function main(): Promise<void> {
       scrapeAllSources: liveScrapeCalls,
       estimatedInputChars,
       estimatedOutputChars,
+      sarvamPromptTokens: totalSarvamUsage?.promptTokens ?? null,
+      sarvamCachedPromptTokens: totalSarvamUsage?.cachedPromptTokens ?? null,
+      sarvamCompletionTokens: totalSarvamUsage?.completionTokens ?? null,
     },
+    pricing: SARVAM_105B_PRICING,
     metrics: {
       absent_claim_rate: absentMetric,
       cache_hit_rate: cacheMetric,
-      cost_per_query_usd: costMetric,
+      cost_per_query_inr: costInrMetric,
+      cost_per_query_usd: costUsdMetric,
+      firecrawl_only_cost_usd: firecrawlOnlyUsdMetric,
     },
     cache,
     products: productRows,
@@ -769,7 +880,9 @@ async function main(): Promise<void> {
     ["Hardware", `${hardware.cpuModel}, ${hardware.cpuCount} cores, ${hardware.ramGiB} GiB RAM, ${hardware.platform}/${hardware.arch}, Node ${hardware.node}`],
     ["Absent-claim rate", formatMetric(absentMetric)],
     ["Cache hit rate", formatMetric(cacheMetric)],
-    ["Cost per query", formatMetric(costMetric)],
+    ["Cost per query (INR)", formatMetric(costInrMetric)],
+    ["Cost per query (USD)", formatMetric(costUsdMetric)],
+    ["Firecrawl-only cost (USD)", firecrawlOnlyUsdMetric ? formatMetric(firecrawlOnlyUsdMetric) : "n/a"],
   ]);
 
   console.log(table);
