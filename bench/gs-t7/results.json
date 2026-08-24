@@ -1,0 +1,232 @@
+{
+  "task": "GS-T7",
+  "measured_at": "2026-08-24T21:01:38.737Z",
+  "date_utc": "2026-08-24",
+  "model": {
+    "synthesis": "sarvam-m",
+    "synthesis_status": "Product code still sends model sarvam-m. Sarvam documents this model as deprecated and no longer available on Chat Completions.",
+    "audio_script": "gemini-2.0-flash",
+    "audio_script_included_in_cost": false
+  },
+  "dataset": {
+    "path": "bench/gs-t7/dataset.json",
+    "label": "GS-T7 fixture corpus. These texts are labeled fixtures, not live Firecrawl scrapes.",
+    "product_count": 8,
+    "source_count": 24,
+    "query_count": 12,
+    "unique_products_in_queries": 8
+  },
+  "hardware": {
+    "platform": "linux",
+    "release": "6.12.94+",
+    "arch": "x64",
+    "cpu_model": "Intel(R) Xeon(R) Processor",
+    "cpu_count": 4,
+    "total_memory_bytes": 16791945216,
+    "total_memory_gib": 15.64,
+    "node": "v22.14.0"
+  },
+  "methodology": {
+    "absent_claims": {
+      "claim_units": "Sentences from summary and tldr, plus bestFor, plus each pro, plus each con. Verdict is excluded because it is a classification, not a source fact.",
+      "tokenizer": "Unicode letters and numbers, lowercase, tokens shorter than 3 dropped, stopwords dropped.",
+      "grounded_rule": "A claim is grounded if at least 0.5 of its content tokens appear in the concatenated fixture sources for that product. Otherwise it is absent.",
+      "sources": "Fixture review texts in dataset.json. Not live scrapes.",
+      "live_synthesis": "Uses src/lib/pipeline/synthesize.ts when SARVAM_API_KEY is set. No mock summaries are scored."
+    },
+    "cache": {
+      "live_redis": {
+        "available": false,
+        "reason": "UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN is not set"
+      },
+      "simulation": "In-memory Map using the production review-cache key review:${slug} from src/lib/cache/reviews.ts and toSlug from src/lib/utils/slug.ts. Matches the query route skip of scrape plus synthesize on getCachedReview hit. Localized cache is not filled because localize is not run. Workload is the listed query sequence: 8 first-time products then 4 repeats. Cold start. Not padded to the spec 60% week-1 target."
+    },
+    "cost": {
+      "observed_usd": "Not measured. This environment issued no billed Firecrawl or Sarvam calls.",
+      "firecrawl_credits": {
+        "search_credits": 6,
+        "scrape_credits": 12,
+        "json_extra_credits": 16,
+        "total_credits": 34,
+        "assumptions": [
+          "Matches src/lib/firecrawl/scraper.ts primary path: 3 searches (blog limit 5, ecommerce 4, youtube 3).",
+          "Each search limit is at most 10 results, so each search is 2 credits (Firecrawl: 2 credits per 10 results).",
+          "Assumes primary searches return enough trusted hits. Fallback searches in scraper.ts are not counted.",
+          "Assumes every selected URL scrapes successfully. Firecrawl states failed requests are not charged.",
+          "Ecommerce scrapes use JSON format (+4 credits per page) and do not fall back to a second markdown scrape.",
+          "USD uses published plan allotments from firecrawl.dev/pricing, not a live invoice."
+        ]
+      },
+      "firecrawl_usd_sources": {
+        "page": "https://www.firecrawl.dev/pricing",
+        "standard_annual": "$83/month for 100000 credits",
+        "hobby_annual": "$16/month for 5000 credits",
+        "headline_plan": "standard_annual because Firecrawl labels Standard as recommended"
+      },
+      "sarvam_m": {
+        "published_token_rate_usd": null,
+        "reason": "sarvam-m is not listed on https://docs.sarvam.ai/api/getting-started/pricing. Deprecation: https://docs.sarvam.ai/api/getting-started/models/sarvam-m. No billed token counts were observed."
+      },
+      "excluded": [
+        "STT (Saaras)",
+        "entity extraction chat",
+        "Mayura translation",
+        "Gemini 2.0 Flash audio script",
+        "Bulbul TTS"
+      ]
+    }
+  },
+  "metrics": {
+    "absent_claim_rate": null,
+    "absent_claims": 0,
+    "total_claims": 0,
+    "cache_hit_rate": 0.3333333333333333,
+    "cache_hits": 4,
+    "cache_misses": 8,
+    "cache_backend": "in_memory_policy_replica",
+    "cost_per_query_usd_observed": null,
+    "cost_per_query_usd_total_estimated": null,
+    "firecrawl_credits_per_uncached_query": 34,
+    "firecrawl_usd_per_uncached_query_standard_annual": 0.02822,
+    "firecrawl_usd_per_uncached_query_hobby_annual": 0.1088,
+    "firecrawl_credits_per_query_workload_average": 22.6667,
+    "firecrawl_usd_per_query_workload_average_standard_annual": 0.018813
+  },
+  "synthesis_attempts": [
+    {
+      "product_name": "Redmi Note 15",
+      "ok": false,
+      "error": "SARVAM_API_KEY is not set",
+      "claim_count": null,
+      "absent_count": null
+    },
+    {
+      "product_name": "Samsung Galaxy S24",
+      "ok": false,
+      "error": "SARVAM_API_KEY is not set",
+      "claim_count": null,
+      "absent_count": null
+    },
+    {
+      "product_name": "iPhone 16",
+      "ok": false,
+      "error": "SARVAM_API_KEY is not set",
+      "claim_count": null,
+      "absent_count": null
+    },
+    {
+      "product_name": "OnePlus Nord 4",
+      "ok": false,
+      "error": "SARVAM_API_KEY is not set",
+      "claim_count": null,
+      "absent_count": null
+    },
+    {
+      "product_name": "Google Pixel 8a",
+      "ok": false,
+      "error": "SARVAM_API_KEY is not set",
+      "claim_count": null,
+      "absent_count": null
+    },
+    {
+      "product_name": "Nothing Phone (2a)",
+      "ok": false,
+      "error": "SARVAM_API_KEY is not set",
+      "claim_count": null,
+      "absent_count": null
+    },
+    {
+      "product_name": "Realme Narzo 70 Pro",
+      "ok": false,
+      "error": "SARVAM_API_KEY is not set",
+      "claim_count": null,
+      "absent_count": null
+    },
+    {
+      "product_name": "Motorola Edge 50 Fusion",
+      "ok": false,
+      "error": "SARVAM_API_KEY is not set",
+      "claim_count": null,
+      "absent_count": null
+    }
+  ],
+  "cache_events": [
+    {
+      "query_index": 0,
+      "product_name": "Redmi Note 15",
+      "slug": "redmi-note-15",
+      "hit": false
+    },
+    {
+      "query_index": 1,
+      "product_name": "Samsung Galaxy S24",
+      "slug": "samsung-galaxy-s24",
+      "hit": false
+    },
+    {
+      "query_index": 2,
+      "product_name": "iPhone 16",
+      "slug": "iphone-16",
+      "hit": false
+    },
+    {
+      "query_index": 3,
+      "product_name": "OnePlus Nord 4",
+      "slug": "oneplus-nord-4",
+      "hit": false
+    },
+    {
+      "query_index": 4,
+      "product_name": "Google Pixel 8a",
+      "slug": "google-pixel-8a",
+      "hit": false
+    },
+    {
+      "query_index": 5,
+      "product_name": "Nothing Phone (2a)",
+      "slug": "nothing-phone-2a",
+      "hit": false
+    },
+    {
+      "query_index": 6,
+      "product_name": "Realme Narzo 70 Pro",
+      "slug": "realme-narzo-70-pro",
+      "hit": false
+    },
+    {
+      "query_index": 7,
+      "product_name": "Motorola Edge 50 Fusion",
+      "slug": "motorola-edge-50-fusion",
+      "hit": false
+    },
+    {
+      "query_index": 8,
+      "product_name": "Redmi Note 15",
+      "slug": "redmi-note-15",
+      "hit": true
+    },
+    {
+      "query_index": 9,
+      "product_name": "Samsung Galaxy S24",
+      "slug": "samsung-galaxy-s24",
+      "hit": true
+    },
+    {
+      "query_index": 10,
+      "product_name": "iPhone 16",
+      "slug": "iphone-16",
+      "hit": true
+    },
+    {
+      "query_index": 11,
+      "product_name": "OnePlus Nord 4",
+      "slug": "oneplus-nord-4",
+      "hit": true
+    }
+  ],
+  "claim_records": [],
+  "failures": [
+    "live_redis: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN is not set",
+    "absent_claim_rate: no synthesized reviews. Product synthesizeReview was not run successfully. This checkout has no SARVAM_API_KEY, and sarvam-m is documented as deprecated."
+  ]
+}

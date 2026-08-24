@@ -105,6 +105,32 @@ Detailed product spec lives in `docs/spec.md`.
 
 ---
 
+## Results
+
+GS-T7 measures absent claims in synthesized reviews, review-cache hit rate, and cost per query.
+
+Run:
+
+```bash
+npx tsx bench/gs-t7/run.ts
+```
+
+Latest numbers are committed in `bench/gs-t7/results.json`.
+
+| metric | value | status |
+| --- | --- | --- |
+| absent_claim_rate | n/a | failed: no live summaries in this environment (SARVAM_API_KEY missing; sarvam-m deprecated) |
+| cache_hit_rate | 0.3333 | ok (in-memory replica of `review:${slug}`, cold cache, 8 unique queries then 4 repeats) |
+| cost_per_query_usd_observed | n/a | failed: no billed API usage |
+| cost_per_query_usd_total_estimated | n/a | failed: sarvam-m has no published token rate |
+| firecrawl_credits_per_uncached_query | 34 | estimated from `src/lib/firecrawl/scraper.ts` primary path |
+| firecrawl_usd_per_uncached_query_standard_annual | 0.028220 | estimated from Firecrawl Standard annual allotment ($83 / 100000 credits) |
+| firecrawl_usd_per_query_workload_average_standard_annual | 0.018813 | estimated; 8 misses and 4 hits |
+
+Model recorded: `sarvam-m`. Dataset: 8 products, 24 fixture sources, 12 queries. Hardware is recorded in the JSON.
+
+---
+
 ## Local Setup
 
 1. Create `.env.local` and add required keys (see `docs/spec.md` section `7.3 Environment Variables`).

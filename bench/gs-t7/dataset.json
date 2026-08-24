@@ -1,0 +1,204 @@
+{
+  "label": "GS-T7 fixture corpus. These texts are labeled fixtures, not live Firecrawl scrapes.",
+  "language": "en-IN",
+  "products": [
+    {
+      "name": "Redmi Note 15",
+      "sources": [
+        {
+          "type": "blog",
+          "title": "Redmi Note 15 battery and display notes",
+          "url": "https://www.gsmarena.com/fixture-redmi-note-15",
+          "content": "The Redmi Note 15 uses a 5000mAh battery that lasted a full workday plus evening video in our test. Charging is 33W wired and a 20 to 80 percent top-up took about 35 minutes. The 6.67 inch 120Hz AMOLED panel is bright outdoors. Cameras are a 50MP main and an 8MP ultrawide. Night shots look soft. Stereo speakers get loud. MIUI still includes ads in some system apps. Price in India is around 18999 rupees for 6GB RAM and 128GB storage."
+        },
+        {
+          "type": "ecommerce",
+          "title": "Amazon customer reviews fixture",
+          "url": "https://www.amazon.in/fixture-redmi-note-15",
+          "content": "Bought for my father. Battery easily lasts a day with WhatsApp and YouTube. Fingerprint on the side is fast. Camera is average in low light. Phone feels plastic but grip is fine. Seller packed well. Two stars from a user who said the charger in the box is missing in some units. Many five star notes mention the 120Hz scroll feels smooth."
+        },
+        {
+          "type": "youtube",
+          "title": "Redmi Note 15 week with me fixture",
+          "url": "https://www.youtube.com/watch?v=fixture-note-15",
+          "content": "After seven days the Note 15 is a battery first phone. Gaming heats the back during BGMI. Call quality is clear. No IP rating listed on the box we bought. Ultrawide is usable only in daylight. Software update came in week one."
+        }
+      ]
+    },
+    {
+      "name": "Samsung Galaxy S24",
+      "sources": [
+        {
+          "type": "blog",
+          "title": "Galaxy S24 compact flagship fixture",
+          "url": "https://www.androidauthority.com/fixture-galaxy-s24",
+          "content": "Galaxy S24 keeps a 6.2 inch 120Hz AMOLED and Exynos 2400 in India. Seven years of OS updates are promised. Camera is a 50MP main with strong Nightography. Battery is 4000mAh and often needs a top-up by 8pm with heavy maps use. Wireless charging works. Ultrasonic fingerprint is reliable. Trade-in deals drop the street price below 65000 rupees."
+        },
+        {
+          "type": "ecommerce",
+          "title": "Flipkart reviews fixture",
+          "url": "https://www.flipkart.com/fixture-galaxy-s24",
+          "content": "Display is the best part. Photos of kids indoors look natural. Some buyers report heating during 4K video. One review says the 4000mAh battery is the weak point compared with S24 Ultra. Samsung Care plus enrolment was smooth."
+        },
+        {
+          "type": "youtube",
+          "title": "S24 vs Pixel 8a fixture",
+          "url": "https://www.youtube.com/watch?v=fixture-s24",
+          "content": "Versus Pixel 8a the S24 wins zoom and update length. Pixel still wins some colors. S24 compact size fits small hands. Speakers are tuned louder than last year."
+        }
+      ]
+    },
+    {
+      "name": "iPhone 16",
+      "sources": [
+        {
+          "type": "blog",
+          "title": "iPhone 16 Camera Control fixture",
+          "url": "https://www.theverge.com/fixture-iphone-16",
+          "content": "iPhone 16 adds Camera Control on the side and A18. The 6.1 inch 60Hz panel is unchanged versus iPhone 15. Battery lasted a day of mixed use. USB-C is here. No 120Hz on this model. Camera Control takes practice. India MRP starts near 79900 rupees."
+        },
+        {
+          "type": "ecommerce",
+          "title": "Amazon iPhone 16 reviews fixture",
+          "url": "https://www.amazon.in/fixture-iphone-16",
+          "content": "Face ID is fast. Video stabilization is excellent. Several reviews mention the 60Hz screen after using a 120Hz Android. MagSafe cases work. One buyer said delivery delayed the launch weekend."
+        },
+        {
+          "type": "youtube",
+          "title": "iPhone 16 unboxing fixture",
+          "url": "https://www.youtube.com/watch?v=fixture-iphone-16",
+          "content": "Box has USB-C cable only. Action button is customizable. Camera Control shutter is clicky. iOS 18 photos app is cleaner. Heating during 4K was mild."
+        }
+      ]
+    },
+    {
+      "name": "OnePlus Nord 4",
+      "sources": [
+        {
+          "type": "blog",
+          "title": "Nord 4 metal frame fixture",
+          "url": "https://www.91mobiles.com/fixture-nord-4",
+          "content": "OnePlus Nord 4 uses a metal unibody, Snapdragon 7 Plus Gen 3, and a 5500mAh cell with 100W charging. We saw 0 to 100 in 28 minutes. The 6.74 inch 120Hz AMOLED is sharp. Alert Slider is back. Camera is a 50MP Sony sensor. OxygenOS is close to stock. Price starts at 29999 rupees."
+        },
+        {
+          "type": "ecommerce",
+          "title": "Amazon Nord 4 reviews fixture",
+          "url": "https://www.amazon.in/fixture-nord-4",
+          "content": "Charging speed is the headline. Phone feels premium. Some users say the telephoto is missing versus older Nord. Haptics are strong. Green tint on a few AMOLED units was mentioned twice."
+        },
+        {
+          "type": "youtube",
+          "title": "Nord 4 camera samples fixture",
+          "url": "https://www.youtube.com/watch?v=fixture-nord-4",
+          "content": "Daylight photos look punchy. Night mode takes 3 seconds. Speakers distort at max volume. Gaming is stable at 60fps in Genshin on medium."
+        }
+      ]
+    },
+    {
+      "name": "Google Pixel 8a",
+      "sources": [
+        {
+          "type": "blog",
+          "title": "Pixel 8a Tensor G3 fixture",
+          "url": "https://www.androidauthority.com/fixture-pixel-8a",
+          "content": "Pixel 8a brings Tensor G3, a 64MP main camera, and 7 years of updates to a 6.1 inch 120Hz OLED. Battery is 4492mAh. Modem efficiency is better than Pixel 7a. Call Screen still works in English. Wireless charging is 7.5W. Launch price in India was 52999 rupees."
+        },
+        {
+          "type": "ecommerce",
+          "title": "Flipkart Pixel 8a reviews fixture",
+          "url": "https://www.flipkart.com/fixture-pixel-8a",
+          "content": "Photos of food and portraits look like Pixel. A few reviews mention heating in summer while recording. Magic Editor is a reason people switched. Fingerprint under display is average with wet fingers."
+        },
+        {
+          "type": "youtube",
+          "title": "Pixel 8a long term fixture",
+          "url": "https://www.youtube.com/watch?v=fixture-pixel-8a",
+          "content": "After a month the software is the win. Battery is fine if you avoid 5G all day. Tensor still trails Snapdragon in heavy games. Add Me in photos actually worked at a wedding."
+        }
+      ]
+    },
+    {
+      "name": "Nothing Phone (2a)",
+      "sources": [
+        {
+          "type": "blog",
+          "title": "Phone 2a Glyph fixture",
+          "url": "https://www.androidauthority.com/fixture-nothing-2a",
+          "content": "Nothing Phone 2a uses Dimensity 7200 Pro, a unique Glyph strip, and a 5000mAh battery. The 6.7 inch 120Hz AMOLED is flat. Charging is 45W. Dual 50MP cameras are decent in daylight. Nothing OS 2.5 is light. Price is 23999 rupees for 8GB."
+        },
+        {
+          "type": "ecommerce",
+          "title": "Amazon Phone 2a reviews fixture",
+          "url": "https://www.amazon.in/fixture-nothing-2a",
+          "content": "Glyph notifications are a gimmick some people love. Build feels solid. Camera struggles at night. Essential apps on the Glyph timer are useful. One review said the plastic back shows fingerprints."
+        },
+        {
+          "type": "youtube",
+          "title": "Phone 2a Glyph demo fixture",
+          "url": "https://www.youtube.com/watch?v=fixture-nothing-2a",
+          "content": "Glyph ringer is visible across the room. Gaming is okay not flagship. Speakers are stereo. Software bugs in week one were patched."
+        }
+      ]
+    },
+    {
+      "name": "Realme Narzo 70 Pro",
+      "sources": [
+        {
+          "type": "blog",
+          "title": "Narzo 70 Pro 5G fixture",
+          "url": "https://www.91mobiles.com/fixture-narzo-70-pro",
+          "content": "Narzo 70 Pro 5G has Dimensity 7050, a 50MP Sony IMX890, and a 67W 5000mAh pack. The 6.67 inch 120Hz curved AMOLED looks rich. Realme UI still has a theme store. Segment price is about 19999 rupees. Telephoto is not included."
+        },
+        {
+          "type": "ecommerce",
+          "title": "Flipkart Narzo reviews fixture",
+          "url": "https://www.flipkart.com/fixture-narzo-70-pro",
+          "content": "Value for money is the common phrase. Camera is good in sun. Curved screen leads to accidental touches. Fast charging is appreciated. A few units had dead pixels according to comments."
+        },
+        {
+          "type": "youtube",
+          "title": "Narzo 70 Pro review fixture",
+          "url": "https://www.youtube.com/watch?v=fixture-narzo-70-pro",
+          "content": "Performance is mid range. Heating during 4K is moderate. UI ads can be turned off. Microphone is fine for WhatsApp video."
+        }
+      ]
+    },
+    {
+      "name": "Motorola Edge 50 Fusion",
+      "sources": [
+        {
+          "type": "blog",
+          "title": "Edge 50 Fusion vegan leather fixture",
+          "url": "https://www.gsmarena.com/fixture-edge-50-fusion",
+          "content": "Edge 50 Fusion pairs Snapdragon 7s Gen 2 with a 5000mAh 68W cell and a 6.7 inch 144Hz pOLED. IP68 is listed. Near-stock Android is the pitch. Camera is 50MP with a 13MP ultrawide. India price starts at 20999 rupees. Vegan leather back hides smudges."
+        },
+        {
+          "type": "ecommerce",
+          "title": "Amazon Edge 50 Fusion reviews fixture",
+          "url": "https://www.amazon.in/fixture-edge-50-fusion",
+          "content": "Clean Android is why I bought it. 144Hz is smooth. Camera app is slow to open for some users. IP68 gave confidence in rain. Moto gestures like flashlight chop work."
+        },
+        {
+          "type": "youtube",
+          "title": "Edge 50 Fusion water test fixture",
+          "url": "https://www.youtube.com/watch?v=fixture-edge-50-fusion",
+          "content": "We rinsed it under a tap after IP68 claims. Display stayed on. Speakers popped water after. Software is vanilla with Moto features. Charging 68W is not as fast as 100W rivals."
+        }
+      ]
+    }
+  ],
+  "queries": [
+    { "product_name": "Redmi Note 15", "language": "en-IN" },
+    { "product_name": "Samsung Galaxy S24", "language": "en-IN" },
+    { "product_name": "iPhone 16", "language": "en-IN" },
+    { "product_name": "OnePlus Nord 4", "language": "en-IN" },
+    { "product_name": "Google Pixel 8a", "language": "en-IN" },
+    { "product_name": "Nothing Phone (2a)", "language": "en-IN" },
+    { "product_name": "Realme Narzo 70 Pro", "language": "en-IN" },
+    { "product_name": "Motorola Edge 50 Fusion", "language": "en-IN" },
+    { "product_name": "Redmi Note 15", "language": "en-IN" },
+    { "product_name": "Samsung Galaxy S24", "language": "en-IN" },
+    { "product_name": "iPhone 16", "language": "en-IN" },
+    { "product_name": "OnePlus Nord 4", "language": "en-IN" }
+  ]
+}
