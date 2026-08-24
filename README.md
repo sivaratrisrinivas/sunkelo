@@ -105,6 +105,22 @@ Detailed product spec lives in `docs/spec.md`.
 
 ---
 
+## Results
+
+GS-T7 ran on 2026-08-24 against 5 products. Synthesis model is sarvam-m. Hardware was an Intel Xeon, 4 cores, 15.6 GiB RAM, Node v22.14.0.
+
+This checkout had no API keys. I still ran the product cache functions instead of a fake Map. Repeat lookups still missed, which is the real behavior when Redis is unset: `getCachedReview` catches the error and returns null.
+
+| Metric | Result |
+|---|---|
+| Absent-claim rate | failed. `SARVAM_API_KEY` was unset, so `synthesizeReview` never ran. |
+| Cache hit rate | 0.0% (0 hits / 10 lookups). Redis unset. Cold pass plus repeat pass, 5 slugs. |
+| Cost per query | failed. No live Firecrawl or Sarvam calls. Not reported as $0, because that would describe missing keys, not a query. |
+
+Re-run with `npm run bench:gs-t7`. Raw JSON is `bench/gs-t7-results.json`.
+
+---
+
 ## Local Setup
 
 1. Create `.env.local` and add required keys (see `docs/spec.md` section `7.3 Environment Variables`).
@@ -146,6 +162,7 @@ npm run build
 - `src/lib` - db/cache/ai/pipeline modules
 - `src/types` - shared types
 - `scripts` - seed and tooling scripts
+- `bench` - GS-T7 measurement script and results JSON
 - `docs/spec.md` - product and architecture specification
 - `docs/sprints.md` - sprint-by-sprint execution plan
 
