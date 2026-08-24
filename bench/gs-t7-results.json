@@ -1,7 +1,7 @@
 {
   "task": "GS-T7",
-  "measured_at": "2026-08-24T21:28:03.757Z",
-  "model": "sarvam-m",
+  "measured_at": "2026-08-24T21:43:16.144Z",
+  "model": "sarvam-105b",
   "dataset_size": 5,
   "hardware": {
     "hostname": "cursor",
@@ -19,9 +19,9 @@
     "reason": "It is the only pipeline-level harness that already records cache hit vs miss on the query path, but it mocks scrape, synthesis, and Redis, so it cannot record live absent-claim rate or cost."
   },
   "method": {
-    "absent_claims": "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
+    "absent_claims": "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). not, no, and nor are content tokens, not stopwords, so a source like 'not a camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
     "cache": "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
-    "cost": "Count live Firecrawl and Sarvam calls this process actually made. Do not invent a billed query cost when those calls did not happen."
+    "cost": "If synthesizeReview returns API usage token counts, compute INR from the published sarvam-105b rates on https://docs.sarvam.ai/api/getting-started/pricing (fetched 2026-08-25): input ₹29.28, cached input ₹10.98, output ₹73.2 per 1M tokens. Do not convert INR to USD. USD stays failed because there is no published USD rate. Firecrawl may have a separate Hobby-credit USD estimate, labeled Firecrawl-only, never as a Sarvam USD price. Do not invent a billed cost when live calls did not happen."
   },
   "env": {
     "SARVAM_API_KEY": false,
@@ -65,13 +65,28 @@
       "name": "glued-rs-price-grounds",
       "passed": true,
       "detail": "tokens=18999/118999; 18999 grounded=true missing=none; 118999 grounded=true missing=none; 200000 grounded=false missing=200000"
+    },
+    {
+      "name": "negation-not-stopword",
+      "passed": true,
+      "detail": "sourceHasNot=true bagOverlap=0.6667 claimNegationOverlap=0.6667 norKept=true"
     }
   ],
   "live_calls": {
     "synthesizeReview": 0,
     "scrapeAllSources": 0,
     "estimatedInputChars": 0,
-    "estimatedOutputChars": 0
+    "estimatedOutputChars": 0,
+    "sarvamPromptTokens": null,
+    "sarvamCachedPromptTokens": null,
+    "sarvamCompletionTokens": null
+  },
+  "pricing": {
+    "source": "https://docs.sarvam.ai/api/getting-started/pricing",
+    "fetched": "2026-08-25",
+    "inputInrPerMillion": 29.28,
+    "cachedInputInrPerMillion": 10.98,
+    "outputInrPerMillion": 73.2
   },
   "metrics": {
     "absent_claim_rate": {
@@ -86,12 +101,19 @@
       "unit": "rate",
       "detail": "0/10 hits. redisConfigured=false. UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN is unset. Product cache functions catch Redis errors and return null, so every lookup is a miss. Workload is 5 unique slugs, then the same 5 slugs again. A working cache should hit on the second pass. Expected hit rate if Redis works is 0.5."
     },
+    "cost_per_query_inr": {
+      "status": "failed",
+      "value": null,
+      "unit": "inr",
+      "error": "No live Firecrawl or Sarvam calls ran. SARVAM_API_KEY and FIRECRAWL_API_KEY are unset or every call failed. This bench will not report ₹0 as product cost, because that would describe the missing keys, not a query."
+    },
     "cost_per_query_usd": {
       "status": "failed",
       "value": null,
       "unit": "usd",
-      "error": "No live Firecrawl or Sarvam calls ran. SARVAM_API_KEY and FIRECRAWL_API_KEY are unset or every call failed. This bench will not report $0 as product cost, because that would describe the missing keys, not a query."
-    }
+      "error": "No published USD list price for sarvam-105b. This bench will not invent an FX conversion from INR."
+    },
+    "firecrawl_only_cost_usd": null
   },
   "cache": {
     "lookups": 10,
@@ -245,6 +267,7 @@
   ],
   "failures": [
     "absent_claim_rate: no summaries",
-    "cost_per_query: no live API calls"
+    "cost_per_query_inr: no live API calls",
+    "cost_per_query_usd: no published USD rate"
   ]
 }
