@@ -2,6 +2,7 @@ import { getSarvamClient, SarvamError } from "./client";
 import {
   chatCompletionRequestSchema,
   chatCompletionResponseSchema,
+  formatZodIssues,
   type ChatCompletionMessage,
 } from "./types";
 
@@ -38,8 +39,9 @@ function parseUsage(
     | {
         prompt_tokens?: number;
         completion_tokens?: number;
-        prompt_tokens_details?: { cached_tokens?: number };
+        prompt_tokens_details?: { cached_tokens?: number } | null;
       }
+    | null
     | undefined,
 ): ChatCompletionUsage | null {
   if (!usage) {
@@ -127,8 +129,14 @@ export async function createChatCompletion({
     );
   }
 
-  const parsed = chatCompletionResponseSchema.parse(await response.json());
-  const content = parsed.choices[0].message.content?.trim() ?? "";
+  const parsed = chatCompletionResponseSchema.safeParse(await response.json());
+  if (!parsed.success) {
+    throw new SarvamError(
+      `Sarvam chat response schema failed (${response.status}): ${formatZodIssues(parsed.error)}`,
+      response.status,
+    );
+  }
+  const content = parsed.data.choices[0].message.content?.trim() ?? "";
   if (!content) {
     throw new SarvamError(
       "Sarvam returned empty content; reasoning tokens may have consumed max_tokens",
@@ -137,6 +145,6 @@ export async function createChatCompletion({
   }
   return {
     content,
-    usage: parseUsage(parsed.usage),
+    usage: parseUsage(parsed.data.usage),
   };
 }

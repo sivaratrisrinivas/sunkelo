@@ -20,7 +20,7 @@ vi.mock("@/lib/sarvam/chat", () => ({
   SARVAM_CHAT_MODEL: "sarvam-105b",
 }));
 
-import { synthesizeReview, synthesizedReviewSchema } from "./synthesize";
+import { synthesizeReview, synthesizedReviewSchema, SynthesisError } from "./synthesize";
 
 describe("synthesizedReviewSchema", () => {
   it("accepts valid synthesized review payload", () => {
@@ -192,5 +192,36 @@ SOURCES:
     expect(result.pros.length).toBeGreaterThan(0);
     expect(result.sources[0].url).toBe("https://example.com/gsm");
     expect(mockCreateChatCompletion).toHaveBeenCalledTimes(2);
+  });
+
+  it("puts the underlying chat error on SynthesisError.message", async () => {
+    mockCreateChatCompletion.mockRejectedValueOnce(
+      new Error(
+        "Sarvam chat response schema failed (200): choices.0.message.reasoning_content: Expected string, received null",
+      ),
+    );
+
+    await expect(
+      synthesizeReview({
+        productName: "Redmi Note 15",
+        sources: [
+          {
+            url: "https://example.com/a",
+            title: "GSMArena",
+            type: "blog",
+            content: "review text",
+            originalLanguageCode: "en-IN",
+            translatedToEnglish: false,
+          },
+        ],
+      }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return (
+        error instanceof SynthesisError &&
+        error.message.includes("Synthesis chat call failed") &&
+        error.message.includes("choices.0.message.reasoning_content") &&
+        error.message.includes("Expected string, received null")
+      );
+    });
   });
 });

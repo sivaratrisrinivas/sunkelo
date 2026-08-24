@@ -87,6 +87,83 @@ describe("createChatCompletion", () => {
     );
   });
 
+  it("accepts the live sarvam-105b 200 body with null reasoning_content and prompt_tokens_details", async () => {
+    const { createChatCompletion } = await import("./chat");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: "chatcmpl-live-probe",
+          model: "sarvam-105b",
+          choices: [
+            {
+              finish_reason: "stop",
+              logprobs: null,
+              message: {
+                role: "assistant",
+                content: "pong",
+                reasoning_content: null,
+              },
+            },
+          ],
+          usage: {
+            prompt_tokens: 12,
+            completion_tokens: 1,
+            total_tokens: 13,
+            prompt_tokens_details: null,
+            completion_tokens_details: null,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const result = await createChatCompletion({
+      messages: [{ role: "user", content: "ping" }],
+      reasoningEffort: null,
+      maxTokens: 64,
+    });
+
+    expect(result.content).toBe("pong");
+    expect(result.usage).toEqual({
+      promptTokens: 12,
+      cachedPromptTokens: 0,
+      completionTokens: 1,
+    });
+  });
+
+  it("throws SarvamError with Zod path when the 200 body fails the response schema", async () => {
+    const { createChatCompletion } = await import("./chat");
+    const { SarvamError } = await import("./client");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              finish_reason: "stop",
+              message: { content: "pong", reasoning_content: 12 },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await expect(
+      createChatCompletion({
+        messages: [{ role: "user", content: "ping" }],
+        reasoningEffort: null,
+        maxTokens: 64,
+      }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return (
+        error instanceof SarvamError &&
+        error.status === 200 &&
+        error.message.includes("choices.0.message.reasoning_content") &&
+        error.message.includes("200")
+      );
+    });
+  });
+
   it("throws RateLimitError on 429", async () => {
     const { createChatCompletion, RateLimitError } = await import("./chat");
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("{}", { status: 429 }));

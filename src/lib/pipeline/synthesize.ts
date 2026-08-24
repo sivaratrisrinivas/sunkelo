@@ -50,6 +50,10 @@ export type SynthesizeReviewResult = SynthesizedReview & {
   sarvamUsage: ChatCompletionUsage | null;
 };
 
+function caughtMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export class SynthesisError extends Error {
   public readonly details?: Record<string, unknown>;
 
@@ -406,7 +410,10 @@ function coerceReviewShape(
 
   const parsed = synthesizedReviewSchema.safeParse(result);
   if (!parsed.success) {
-    throw new SynthesisError("Synthesis schema validation failed", {
+    const issueText = parsed.error.issues
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("; ");
+    throw new SynthesisError(`Synthesis schema validation failed: ${issueText}`, {
       issues: parsed.error.issues.map((issue) => ({
         path: issue.path.join("."),
         message: issue.message,
@@ -554,9 +561,9 @@ export async function synthesizeReview(params: {
       sourceCount: params.sources.length,
       error: error instanceof Error ? error.message : String(error),
     });
-    throw new SynthesisError("Synthesis chat call failed", {
+    throw new SynthesisError(`Synthesis chat call failed: ${caughtMessage(error)}`, {
       stage: "initial_chat",
-      error: error instanceof Error ? error.message : String(error),
+      error: caughtMessage(error),
     });
   }
 
@@ -601,9 +608,9 @@ export async function synthesizeReview(params: {
       if (fallbackError instanceof SynthesisError) {
         throw fallbackError;
       }
-      throw new SynthesisError("Failed to synthesize review", {
+      throw new SynthesisError(`Failed to synthesize review: ${caughtMessage(fallbackError)}`, {
         stage: "fallback_text_parse",
-        error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+        error: caughtMessage(fallbackError),
       });
     }
   }
