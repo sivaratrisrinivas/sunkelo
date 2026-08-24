@@ -1,6 +1,6 @@
 {
   "task": "GS-T7",
-  "measured_at": "2026-08-24T20:58:39.196Z",
+  "measured_at": "2026-08-24T21:08:22.513Z",
   "model": "sarvam-m",
   "dataset_size": 5,
   "hardware": {
@@ -19,7 +19,7 @@
     "reason": "It is the only pipeline-level harness that already records cache hit vs miss on the query path, but it mocks scrape, synthesis, and Redis, so it cannot record live absent-claim rate or cost."
   },
   "method": {
-    "absent_claims": "Split the synthesized summary into sentences. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing.",
+    "absent_claims": "Split the synthesized summary into sentences. A sentence is a claim if it has at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. The tokenizer strips thousands separators (18,999 becomes 18999) and peels a leading numeric prefix from a unit token (5000mAh becomes 5000). A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed and no rate is published.",
     "cache": "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map.",
     "cost": "Count live Firecrawl and Sarvam calls this process actually made. Do not invent a billed query cost when those calls did not happen."
   },
@@ -34,17 +34,17 @@
     {
       "name": "grounded-claim-detected",
       "passed": true,
-      "detail": "overlap=0.7143 missingNumbers=none"
+      "detail": "overlap=0.75 missingNumbers=none"
     },
     {
       "name": "absent-claim-detected",
       "passed": true,
-      "detail": "overlap=0 missingNumbers=none"
+      "detail": "overlap=0 missingNumbers=200"
     },
     {
       "name": "number-token-not-substring",
       "passed": true,
-      "detail": "grounded=false overlap=0.75 missingNumbers=200,18,18"
+      "detail": "200-in-1200/18-in-18.1 grounded=false missing=200,18,18; 500-vs-5000mAh grounded=false missing=500; 5000-vs-5000mAh grounded=true missing=none"
     }
   ],
   "live_calls": {
