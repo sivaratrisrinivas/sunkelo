@@ -1,0 +1,101 @@
+{
+  "description": "GS-T7 product set. Sources are bench inputs that stand in for scraped reviews when Firecrawl is unset. They are not scored summaries.",
+  "products": [
+    {
+      "name": "Xiaomi Redmi Note 15",
+      "query": "Redmi Note 15 review",
+      "sources": [
+        {
+          "title": "GSMArena Redmi Note 15 review",
+          "url": "https://www.gsmarena.com/xiaomi_redmi_note_15-review.php",
+          "type": "blog",
+          "content": "The Redmi Note 15 ships with a 6.67-inch AMOLED display at 120Hz and a 5000mAh battery that lasted 14 hours of mixed use in our test. Charging is 33W wired and a full charge took 68 minutes. The rear camera is 50MP with an 8MP ultrawide. Daylight photos are usable but night shots show heavy noise. The phone runs HyperOS on Snapdragon 4 Gen 2. Stereo speakers are average. It is a battery-first budget phone, not a camera flagship. Build is plastic with an IP53 rating. Weight is 190g."
+        },
+        {
+          "title": "Amazon.in customer reviews",
+          "url": "https://www.amazon.in/redmi-note-15/product-reviews",
+          "type": "ecommerce",
+          "content": "Verified purchase reviews mention all-day battery and fast 33W charging. Several buyers complain about heating during 4K video and about bloatware in HyperOS. Camera is called average in low light. Display color is praised. Delivery and packaging get mixed notes. Rating 4.1 from 1284 ratings. Value for money is the most common phrase in 5-star reviews. Two 2-star reviews mention a loose SIM tray and delayed software update."
+        },
+        {
+          "title": "YouTube Redmi Note 15 review transcript",
+          "url": "https://www.youtube.com/watch?v=redmi-note-15-review",
+          "type": "youtube",
+          "content": "Transcript: battery is the headline, 5000mAh easily lasts a day. 120Hz AMOLED looks bright outdoors. Camera is okay in sunlight, messy at night. Performance is enough for WhatsApp, YouTube, and casual BGMI on low settings. Do not buy this if you want a clean software experience. HyperOS ads showed up on first boot. Price in India starts around 18,999 rupees."
+        }
+      ]
+    },
+    {
+      "name": "Apple iPhone 16",
+      "query": "iPhone 16 review",
+      "sources": [
+        {
+          "title": "The Verge iPhone 16 review",
+          "url": "https://www.theverge.com/iphone-16-review",
+          "type": "blog",
+          "content": "iPhone 16 uses the A18 chip and a 6.1-inch Super Retina XDR OLED at 60Hz. The Action Button is customizable. Camera Control is a new capacitive shutter. Battery life improved versus iPhone 15, about 18 hours of video playback in Apple's rating. USB-C is here. No 120Hz on the base model, which is the main reason to consider Pro. Apple Intelligence features need iOS 18.1 and are rolling out slowly in India. Starting price 79900 rupees for 128GB."
+        },
+        {
+          "title": "Flipkart customer reviews",
+          "url": "https://www.flipkart.com/apple-iphone-16/product-reviews",
+          "type": "ecommerce",
+          "content": "Customer reviews praise video quality and speaker loudness. Verified purchase comments say the 60Hz screen feels dated after using a 120Hz Android. Several reviews mention heating during 4K recording. Delivery was on time for most. Rating 4.6 from 2103 ratings. Battery life is called a full day with moderate use. Value for money is repeatedly questioned at this price."
+        }
+      ]
+    },
+    {
+      "name": "Samsung Galaxy S24",
+      "query": "Galaxy S24 review",
+      "sources": [
+        {
+          "title": "Android Authority Galaxy S24 review",
+          "url": "https://www.androidauthority.com/samsung-galaxy-s24-review",
+          "type": "blog",
+          "content": "Galaxy S24 has a 6.2-inch 120Hz AMOLED, Exynos 2400 in India, and a 4000mAh battery. Charging is 25W, slower than Chinese rivals. Display is excellent. Seven years of OS updates are promised. Compact size is a plus. Cameras are versatile but the ultrawide is soft. Galaxy AI features include Live Translate and Circle to Search. Weight 167g. IP68. No charger in the box."
+        },
+        {
+          "title": "Amazon.in Galaxy S24 reviews",
+          "url": "https://www.amazon.in/samsung-galaxy-s24/product-reviews",
+          "type": "ecommerce",
+          "content": "Verified purchase reviews highlight the compact feel and bright display. Battery is called average, many charge twice on heavy days. Exynos heating comes up in summer reviews. Software updates are trusted. Rating 4.4 from 890 ratings. Customer reviews mention good delivery and easy returns. Some complaints about Exynos gaming performance versus Snapdragon units sold elsewhere."
+        }
+      ]
+    },
+    {
+      "name": "Nothing Phone 2a",
+      "query": "Nothing Phone 2a review",
+      "sources": [
+        {
+          "title": "91mobiles Nothing Phone 2a review",
+          "url": "https://www.91mobiles.com/nothing-phone-2a-review",
+          "type": "blog",
+          "content": "Nothing Phone 2a uses a Dimensity 7200 Pro, 6.7-inch 120Hz AMOLED, and a 5000mAh battery with 45W charging. Glyph lights are on the back but simpler than Phone 2. Software is clean Nothing OS. Cameras are 50MP dual, good in daylight, weak zoom. Price starts at 23999 rupees. No wireless charging. Plastic back. Unique look is the selling point."
+        },
+        {
+          "title": "Flipkart Nothing Phone 2a reviews",
+          "url": "https://www.flipkart.com/nothing-phone-2a/product-reviews",
+          "type": "ecommerce",
+          "content": "Customer reviews like the Glyph lighting and clean UI. Verified purchase notes say 45W charging is fast and battery lasts a day. Camera is called average at night. A few reviews mention green tint on the display. Rating 4.3 from 1560 ratings. Value for money comments are mostly positive. Delivery delays reported in two reviews."
+        }
+      ]
+    },
+    {
+      "name": "Google Pixel 8a",
+      "query": "Pixel 8a review",
+      "sources": [
+        {
+          "title": "TechRadar Pixel 8a review",
+          "url": "https://www.techradar.com/google-pixel-8a-review",
+          "type": "blog",
+          "content": "Pixel 8a has the Tensor G3, 6.1-inch 120Hz OLED, and a 4492mAh battery. Charging is 18W, slow. Camera processing is the reason to buy, especially Night Sight and Magic Editor. Modem and heating were issues on earlier Tensor phones and still show up in long recording sessions. Seven years of updates. Wireless charging is supported. Starting price 52999 rupees in India."
+        },
+        {
+          "title": "Amazon.in Pixel 8a reviews",
+          "url": "https://www.amazon.in/google-pixel-8a/product-reviews",
+          "type": "ecommerce",
+          "content": "Verified purchase reviews praise still photography and call quality. Battery is mixed, some get a day, others do not. Slow 18W charging is the most common con. Tensor heating during camera use is mentioned. Rating 4.2 from 640 ratings. Customer reviews like the clean Android software. A few returns mention network drops on Jio."
+        }
+      ]
+    }
+  ]
+}

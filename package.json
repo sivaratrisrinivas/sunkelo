@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx scripts/seed-products.ts"
+    "seed": "tsx scripts/seed-products.ts",
+    "bench:gs-t7": "tsx bench/gs-t7.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",

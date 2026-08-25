@@ -71,6 +71,37 @@ describe("chatCompletionResponseSchema", () => {
       }),
     ).toThrow();
   });
+
+  it("parses the live sarvam-105b 200 shape with null reasoning_content and prompt_tokens_details", () => {
+    const parsed = chatCompletionResponseSchema.parse({
+      id: "chatcmpl-live-probe",
+      model: "sarvam-105b",
+      choices: [
+        {
+          index: 0,
+          finish_reason: "stop",
+          logprobs: null,
+          message: {
+            role: "assistant",
+            content: "pong",
+            reasoning_content: null,
+            refusal: null,
+          },
+        },
+      ],
+      usage: {
+        prompt_tokens: 12,
+        completion_tokens: 1,
+        total_tokens: 13,
+        prompt_tokens_details: null,
+        completion_tokens_details: null,
+      },
+    });
+
+    expect(parsed.choices[0].message.content).toBe("pong");
+    expect(parsed.choices[0].message.reasoning_content).toBeNull();
+    expect(parsed.usage?.prompt_tokens_details).toBeNull();
+  });
 });
 
 describe("translation schemas", () => {

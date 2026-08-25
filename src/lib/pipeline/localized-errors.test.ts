@@ -20,7 +20,7 @@ describe("getLocalizedErrorMessage", () => {
   });
 
   it("returns translated message for non-English language", async () => {
-    mockCreateChatCompletion.mockResolvedValueOnce("किसी भी प्रोडक्ट रिव्यू या तुलना के बारे में पूछें।");
+    mockCreateChatCompletion.mockResolvedValueOnce({ content: "किसी भी प्रोडक्ट रिव्यू या तुलना के बारे में पूछें।" });
     const message = await getLocalizedErrorMessage("NOT_A_PRODUCT", "hi-IN");
     expect(message).toContain("प्रोडक्ट");
   });

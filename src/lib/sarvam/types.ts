@@ -22,25 +22,58 @@ const messageSchema = z.object({
 export const chatCompletionRequestSchema = z.object({
   model: z.string().min(1),
   temperature: z.number().min(0).max(2).optional(),
+  max_tokens: z.number().int().positive().optional(),
+  reasoning_effort: z.null().optional(),
   messages: z.array(messageSchema).min(1),
 });
+
+export const chatCompletionUsageSchema = z
+  .object({
+    prompt_tokens: z.number().nonnegative().optional(),
+    completion_tokens: z.number().nonnegative().optional(),
+    total_tokens: z.number().nonnegative().optional(),
+    prompt_tokens_details: z
+      .object({
+        cached_tokens: z.number().nonnegative().optional(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
+    completion_tokens_details: z.unknown().nullable().optional(),
+  })
+  .passthrough()
+  .nullable()
+  .optional();
 
 export const chatCompletionResponseSchema = z.object({
   id: z.string().optional(),
   choices: z
     .array(
-      z.object({
-        index: z.number().optional(),
-        finish_reason: z.enum(["stop", "length", "tool_calls", "content_filter"]),
-        message: z.object({
-          role: z.string().optional(),
-          content: z.string().min(1),
-          reasoning_content: z.string().optional(),
-        }),
-      }),
+      z
+        .object({
+          index: z.number().optional(),
+          finish_reason: z.enum(["stop", "length", "tool_calls", "content_filter"]),
+          logprobs: z.unknown().nullable().optional(),
+          message: z
+            .object({
+              role: z.string().optional(),
+              content: z.string().nullable().optional(),
+              reasoning_content: z.string().nullable().optional(),
+              refusal: z.string().nullable().optional(),
+            })
+            .passthrough(),
+        })
+        .passthrough(),
     )
     .min(1),
+  usage: chatCompletionUsageSchema,
 });
+
+export function formatZodIssues(error: z.ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "(root)"}: ${issue.message}`)
+    .join("; ");
+}
 
 export type ChatCompletionMessage = z.infer<typeof messageSchema>;
 export type ChatCompletionRequest = z.infer<typeof chatCompletionRequestSchema>;

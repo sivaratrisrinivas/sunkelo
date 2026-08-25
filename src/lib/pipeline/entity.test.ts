@@ -26,9 +26,9 @@ describe("extractIntentAndEntity", () => {
   });
 
   it("extracts product intent and slug", async () => {
-    mockCreateChatCompletion.mockResolvedValueOnce(
-      '{"intent":"product_review","brand":"Redmi","model":"Note 15","variant":null}',
-    );
+    mockCreateChatCompletion.mockResolvedValueOnce({
+      content: '{"intent":"product_review","brand":"Redmi","model":"Note 15","variant":null}',
+    });
 
     const result = await extractIntentAndEntity("Redmi Note 15 kaisa hai?");
     expect(result.intent).toBe("product_review");
@@ -38,9 +38,9 @@ describe("extractIntentAndEntity", () => {
   });
 
   it("returns unsupported for non-product query", async () => {
-    mockCreateChatCompletion.mockResolvedValueOnce(
-      '{"intent":"unsupported","brand":null,"model":null,"variant":null}',
-    );
+    mockCreateChatCompletion.mockResolvedValueOnce({
+      content: '{"intent":"unsupported","brand":null,"model":null,"variant":null}',
+    });
 
     const result = await extractIntentAndEntity("weather kya hai?");
     expect(result.intent).toBe("unsupported");
@@ -48,9 +48,9 @@ describe("extractIntentAndEntity", () => {
   });
 
   it("supports non-phone products as product intent", async () => {
-    mockCreateChatCompletion.mockResolvedValueOnce(
-      '{"intent":"product_review","brand":"Sony","model":"WH-1000XM5","variant":null}',
-    );
+    mockCreateChatCompletion.mockResolvedValueOnce({
+      content: '{"intent":"product_review","brand":"Sony","model":"WH-1000XM5","variant":null}',
+    });
 
     const result = await extractIntentAndEntity("Sony WH-1000XM5 worth buying?");
     expect(result.intent).toBe("product_review");

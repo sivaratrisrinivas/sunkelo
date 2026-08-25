@@ -1,0 +1,469 @@
+{
+  "task": "GS-T7",
+  "measured_at": "2026-08-24T22:39:20.607Z",
+  "model": "sarvam-105b",
+  "dataset_size": 5,
+  "hardware": {
+    "hostname": "cursor",
+    "platform": "linux",
+    "arch": "x64",
+    "cpuModel": "Intel(R) Xeon(R) Processor",
+    "cpuCount": 8,
+    "ramGiB": 15.6,
+    "node": "v20.19.2"
+  },
+  "command": "npm run bench:gs-t7",
+  "closest_harness": {
+    "path": "src/app/api/query/latency-budget.test.ts",
+    "decision": "new",
+    "reason": "It is the only pipeline-level harness that already records cache hit vs miss on the query path, but it mocks scrape, synthesis, and Redis, so it cannot record live absent-claim rate or cost."
+  },
+  "method": {
+    "absent_claims": "Split the synthesized summary into sentences. Newlines start new sentences. A leading list marker (-, *, •, or 1.) is stripped and is not used to resplit the rest of the line, so hyphenated spec bullets stay one claim. Periods after Rs. / Mr. / Dr. and similar abbreviations are not terminators. A sentence is a claim if it has a number token, or if it has no number token and at least 4 content tokens. Numbers are whole tokens from the same tokenizer used for overlap, so 200 does not match 1200. Bound number-unit tokens stay intact (5G stays 5g) and count as number tokens, so 5G does not match 5-star. When the suffix is a measurement unit such as mah, w, hz, or mp, the tokenizer also emits the bare number, so 5000mAh matches 5000mAh or 5000. The tokenizer splits a letter-dot-digit glue (Rs.18,999 becomes rs and 18999), strips every comma between digits (18,999 becomes 18999, 1,18,999 becomes 118999), and maps word numbers one through ten and twelve to digits (seven becomes 7). not, no, and nor are content tokens, not stopwords. no is kept even though it has length 2, so a source like 'It is no camera flagship' does not bag-match 'It is a camera flagship' at overlap 1.0. A claim is absent unless every number token is present as a whole source token and at least 60% of content tokens overlap the source token set. Threshold chosen before the run. Fixture sources are used only when Firecrawl is unset or returns nothing. If an instrument check fails, absent_claim_rate is failed, products[].absentClaimRate and claimDetails are null, and no rate is published.",
+    "cache": "Call getCachedLocalized then getCachedReview for each slug, matching src/app/api/query/route.ts. Cold pass for every product, then a repeat pass. Hit if either lookup returns data. Uses the product cache functions, not a private Map. Observed hits and lookups always stay in cache.*. If Redis is unset, cache_hit_rate is failed and redis-missing is recorded; do not publish status=ok with value=0 as a GS-T7 cache number. If Redis is configured, the live hit rate is an observed ok metric.",
+    "cost": "If the API returns usage token counts, compute INR from the published sarvam-105b list price on https://docs.sarvam.ai/api/getting-started/pricing (fetched 2026-08-25): input ₹29.28, cached input ₹10.98, output ₹73.2 per 1M tokens, and cite that page. Do not invent a USD FX conversion for Sarvam. USD stays failed because there is no published USD rate. Firecrawl may have a separate published credit USD estimate, labeled Firecrawl-only, never as a Sarvam USD price. Do not publish a fake combined USD query price. Do not invent a billed cost when live calls did not happen."
+  },
+  "env": {
+    "SARVAM_API_KEY": true,
+    "FIRECRAWL_API_KEY": true,
+    "GEMINI_API_KEY": false,
+    "UPSTASH_REDIS_REST_URL": true,
+    "UPSTASH_REDIS_REST_TOKEN": true
+  },
+  "instrument_checks": [
+    {
+      "name": "grounded-claim-detected",
+      "passed": true,
+      "detail": "overlap=0.7778 missingNumbers=none"
+    },
+    {
+      "name": "absent-claim-detected",
+      "passed": true,
+      "detail": "overlap=0 missingNumbers=200mp,200"
+    },
+    {
+      "name": "number-token-not-substring",
+      "passed": true,
+      "detail": "200-in-1200/18-in-18.1 grounded=false missing=200,18,18; 500-vs-5000mAh grounded=false missing=500; 5000-vs-5000mAh grounded=true missing=none"
+    },
+    {
+      "name": "thousands-separator-grounds",
+      "passed": true,
+      "detail": "18,999-vs-18999 grounded=true missing=none; 1,18,999-vs-118999 grounded=true missing=none"
+    },
+    {
+      "name": "short-numbered-sentence-kept",
+      "passed": true,
+      "detail": "longCount=1 longNumbers=5000mah,5000; shortCount=3 kept=Charging is 33W. || The 50MP camera is average at night. || Price is 18999 rupees."
+    },
+    {
+      "name": "sentence-split-abbreviation-and-bullets",
+      "passed": true,
+      "detail": "rsClaims=2 rsNumbers=18999,5000mah,5000; bulletClaims=2 bulletNumbers=5000mah,5000|120hz,120; specClaims=1 specNumbers=120hz,120,5000mah,5000,33w,33"
+    },
+    {
+      "name": "glued-rs-price-grounds",
+      "passed": true,
+      "detail": "tokens=18999/118999; 18999 grounded=true missing=none; 118999 grounded=true missing=none; 200000 grounded=false missing=200000"
+    },
+    {
+      "name": "negation-not-stopword",
+      "passed": true,
+      "detail": "sourceHasNot=true bagOverlap=0.6667 claimNegationOverlap=0.6667 norKept=true noKept=true noBagOverlap=0.6667"
+    },
+    {
+      "name": "five-g-not-five-star",
+      "passed": true,
+      "detail": "5G tokens=5g; 5000mAh tokens=5000mah,5000; 5G-vs-5-star grounded=false missing=5g"
+    },
+    {
+      "name": "seven-years-grounds-as-7",
+      "passed": true,
+      "detail": "sevenTokens=7; digitTokens=7; grounded=true overlap=1 missing=none"
+    }
+  ],
+  "live_calls": {
+    "synthesizeReview": 5,
+    "scrapeAllSources": 2,
+    "estimatedInputChars": 22284,
+    "estimatedOutputChars": 5198,
+    "sarvamPromptTokens": 9419,
+    "sarvamCachedPromptTokens": 640,
+    "sarvamCompletionTokens": 4921
+  },
+  "pricing": {
+    "source": "https://docs.sarvam.ai/api/getting-started/pricing",
+    "fetched": "2026-08-25",
+    "inputInrPerMillion": 29.28,
+    "cachedInputInrPerMillion": 10.98,
+    "outputInrPerMillion": 73.2
+  },
+  "metrics": {
+    "absent_claim_rate": {
+      "status": "ok",
+      "value": 0.7586206896551724,
+      "unit": "rate",
+      "detail": "22/29 summary claims not grounded in source text, overlap threshold 0.6"
+    },
+    "cache_hit_rate": {
+      "status": "ok",
+      "value": 0.5,
+      "unit": "rate",
+      "detail": "5/10 hits. redisConfigured=true. Workload is 5 unique slugs, then the same 5 slugs again. A working cache should hit on the second pass. Expected hit rate if Redis works is 0.5."
+    },
+    "cost_per_query_inr": {
+      "status": "ok",
+      "value": 0.12485870400000001,
+      "unit": "inr",
+      "detail": "5 sarvam-105b synthesize calls. Tokens prompt=9419 cached=640 completion=4921. Rates input ₹29.28 / cached ₹10.98 / output ₹73.2 per 1M tokens. https://docs.sarvam.ai/api/getting-started/pricing (INR, fetched 2026-08-25)."
+    },
+    "cost_per_query_usd": {
+      "status": "failed",
+      "value": null,
+      "unit": "usd",
+      "error": "sarvam-105b list price is published in INR only. No published USD rate, so USD is failed rather than an invented FX conversion."
+    },
+    "firecrawl_only_cost_usd": {
+      "status": "ok",
+      "value": 0.038400000000000004,
+      "unit": "usd",
+      "detail": "Firecrawl-only, not a Sarvam USD price. 2 scrapeAllSources calls. Credits approximated as 3 searches plus 6 scrapes per product = 24 credits at $0.0032/credit Hobby yearly (firecrawl.dev/pricing)."
+    }
+  },
+  "cache": {
+    "lookups": 10,
+    "hits": 5,
+    "misses": 5,
+    "hitRate": 0.5,
+    "redisConfigured": true,
+    "notes": [
+      "Workload is 5 unique slugs, then the same 5 slugs again. A working cache should hit on the second pass. Expected hit rate if Redis works is 0.5."
+    ],
+    "perLookup": [
+      {
+        "slug": "gs-t7-xiaomi-redmi-note-15",
+        "pass": "cold",
+        "hit": false,
+        "via": "miss"
+      },
+      {
+        "slug": "gs-t7-apple-iphone-16",
+        "pass": "cold",
+        "hit": false,
+        "via": "miss"
+      },
+      {
+        "slug": "gs-t7-samsung-galaxy-s24",
+        "pass": "cold",
+        "hit": false,
+        "via": "miss"
+      },
+      {
+        "slug": "gs-t7-nothing-phone-2a",
+        "pass": "cold",
+        "hit": false,
+        "via": "miss"
+      },
+      {
+        "slug": "gs-t7-google-pixel-8a",
+        "pass": "cold",
+        "hit": false,
+        "via": "miss"
+      },
+      {
+        "slug": "gs-t7-xiaomi-redmi-note-15",
+        "pass": "repeat",
+        "hit": true,
+        "via": "localized"
+      },
+      {
+        "slug": "gs-t7-apple-iphone-16",
+        "pass": "repeat",
+        "hit": true,
+        "via": "localized"
+      },
+      {
+        "slug": "gs-t7-samsung-galaxy-s24",
+        "pass": "repeat",
+        "hit": true,
+        "via": "localized"
+      },
+      {
+        "slug": "gs-t7-nothing-phone-2a",
+        "pass": "repeat",
+        "hit": true,
+        "via": "localized"
+      },
+      {
+        "slug": "gs-t7-google-pixel-8a",
+        "pass": "repeat",
+        "hit": true,
+        "via": "localized"
+      }
+    ]
+  },
+  "products": [
+    {
+      "name": "Xiaomi Redmi Note 15",
+      "slug": "gs-t7-xiaomi-redmi-note-15",
+      "sourceOrigin": "live-scrape",
+      "sourceLoadError": null,
+      "sourceCount": 10,
+      "sourceChars": 14955,
+      "synthesisStatus": "ok",
+      "synthesisError": null,
+      "summaryChars": 556,
+      "claims": 4,
+      "absentClaims": 0,
+      "absentClaimRate": 0,
+      "claimDetails": [
+        {
+          "claim": "The Xiaomi Redmi Note 15 5G offers compelling value with its 108MP OIS camera, 5520mAh battery with 45W charging, and sleek curved AMOLED display.",
+          "grounded": true,
+          "overlap": 0.8947,
+          "missingNumbers": []
+        },
+        {
+          "claim": "Powered by Snapdragon 6 Gen 3 with 8GB RAM, it delivers smooth performance for daily tasks.",
+          "grounded": true,
+          "overlap": 0.7,
+          "missingNumbers": []
+        },
+        {
+          "claim": "While some users report underwhelming performance and camera quality that doesn't fully match the 108MP specs, the overall package provides excellent value for money.",
+          "grounded": true,
+          "overlap": 0.6,
+          "missingNumbers": []
+        },
+        {
+          "claim": "The phone is particularly well-suited for users who prioritize camera quality, battery life, and premium design features at an affordable price point.",
+          "grounded": true,
+          "overlap": 0.6875,
+          "missingNumbers": []
+        }
+      ]
+    },
+    {
+      "name": "Apple iPhone 16",
+      "slug": "gs-t7-apple-iphone-16",
+      "sourceOrigin": "fixture",
+      "sourceLoadError": "live scrape returned 0 sources, falling back to fixtures",
+      "sourceCount": 2,
+      "sourceChars": 818,
+      "synthesisStatus": "ok",
+      "synthesisError": null,
+      "summaryChars": 796,
+      "claims": 6,
+      "absentClaims": 5,
+      "absentClaimRate": 0.8333333333333334,
+      "claimDetails": [
+        {
+          "claim": "The iPhone 16, starting at 79,900 rupees for 128GB, offers solid improvements over its predecessor, including a more efficient A18 chip, a full day of battery life, and the inclusion of USB-C. The Action Button is also customizable.",
+          "grounded": true,
+          "overlap": 0.6957,
+          "missingNumbers": []
+        },
+        {
+          "claim": "However, the base model lacks a 120Hz display, a point of contention for users accustomed to higher refresh rates on Android devices.",
+          "grounded": false,
+          "overlap": 0.3125,
+          "missingNumbers": []
+        },
+        {
+          "claim": "User reviews highlight excellent video quality and loud speakers, but also report heating during 4K recording.",
+          "grounded": false,
+          "overlap": 0.5,
+          "missingNumbers": []
+        },
+        {
+          "claim": "The value for money is a recurring concern at this price point.",
+          "grounded": false,
+          "overlap": 0.5,
+          "missingNumbers": []
+        },
+        {
+          "claim": "Additionally, the new Apple Intelligence features are not yet widely available, requiring iOS 18.1 and a slow rollout, particularly in India.",
+          "grounded": false,
+          "overlap": 0.4375,
+          "missingNumbers": []
+        },
+        {
+          "claim": "While a good mid-range option, potential buyers should weigh the 60Hz display and high cost against their needs.",
+          "grounded": false,
+          "overlap": 0.0714,
+          "missingNumbers": []
+        }
+      ]
+    },
+    {
+      "name": "Samsung Galaxy S24",
+      "slug": "gs-t7-samsung-galaxy-s24",
+      "sourceOrigin": "fixture",
+      "sourceLoadError": "live scrape returned 0 sources, falling back to fixtures",
+      "sourceCount": 2,
+      "sourceChars": 750,
+      "synthesisStatus": "ok",
+      "synthesisError": null,
+      "summaryChars": 820,
+      "claims": 5,
+      "absentClaims": 5,
+      "absentClaimRate": 1,
+      "claimDetails": [
+        {
+          "claim": "The Samsung Galaxy S24 offers a compact form factor with an excellent 120Hz AMOLED display and a promise of seven years of OS updates, making it a strong choice for those who value a smaller, well-supported device.",
+          "grounded": false,
+          "overlap": 0.4348,
+          "missingNumbers": []
+        },
+        {
+          "claim": "The 25W charging is slow compared to competitors, and real-world user reviews indicate average battery life that may not last a full day of heavy use.",
+          "grounded": false,
+          "overlap": 0.3,
+          "missingNumbers": []
+        },
+        {
+          "claim": "A significant concern for many users is the Exynos 2400 processor, which is reported to heat up and deliver lower gaming performance than the Snapdragon versions of the phone available in other markets.",
+          "grounded": false,
+          "overlap": 0.2941,
+          "missingNumbers": []
+        },
+        {
+          "claim": "Additionally, the phone does not come with a charger in the box.",
+          "grounded": false,
+          "overlap": 0.3333,
+          "missingNumbers": []
+        },
+        {
+          "claim": "These performance and charging issues suggest potential buyers should wait for potential price drops or for Samsung to address these hardware concerns.",
+          "grounded": false,
+          "overlap": 0.1429,
+          "missingNumbers": []
+        }
+      ]
+    },
+    {
+      "name": "Nothing Phone 2a",
+      "slug": "gs-t7-nothing-phone-2a",
+      "sourceOrigin": "live-scrape",
+      "sourceLoadError": null,
+      "sourceCount": 5,
+      "sourceChars": 5061,
+      "synthesisStatus": "ok",
+      "synthesisError": null,
+      "summaryChars": 809,
+      "claims": 6,
+      "absentClaims": 4,
+      "absentClaimRate": 0.6666666666666666,
+      "claimDetails": [
+        {
+          "claim": "The Nothing Phone 2a is positioned as the most affordable smartphone from Nothing, starting at £320.",
+          "grounded": true,
+          "overlap": 0.875,
+          "missingNumbers": []
+        },
+        {
+          "claim": "It offers a compelling mid-range package with the MediaTek Dimensity 7200 chipset, a 120Hz OLED display, a 50MP dual camera, and a 5000mAh battery with 45W charging.",
+          "grounded": false,
+          "overlap": 0.6667,
+          "missingNumbers": [
+            "120hz",
+            "50mp",
+            "5000mah",
+            "45w"
+          ]
+        },
+        {
+          "claim": "Its standout feature is the unique design, highlighted by the Glyph interface and LED stripe.",
+          "grounded": true,
+          "overlap": 0.6667,
+          "missingNumbers": []
+        },
+        {
+          "claim": "While expert reviews like those from Notebookcheck and TechRadar praise its value and design, potential buyers should be aware of limited carrier support and a potentially awkward purchasing process, particularly in the US.",
+          "grounded": false,
+          "overlap": 0.45,
+          "missingNumbers": []
+        },
+        {
+          "claim": "User reviews for accessories are overwhelmingly positive, suggesting good build quality.",
+          "grounded": false,
+          "overlap": 0.3333,
+          "missingNumbers": []
+        },
+        {
+          "claim": "Overall, it's a strong contender in the competitive mid-range market for those who value design and performance at an accessible price.",
+          "grounded": false,
+          "overlap": 0.5833,
+          "missingNumbers": []
+        }
+      ]
+    },
+    {
+      "name": "Google Pixel 8a",
+      "slug": "gs-t7-google-pixel-8a",
+      "sourceOrigin": "fixture",
+      "sourceLoadError": "live scrape returned 0 sources, falling back to fixtures",
+      "sourceCount": 2,
+      "sourceChars": 700,
+      "synthesisStatus": "ok",
+      "synthesisError": null,
+      "summaryChars": 918,
+      "claims": 8,
+      "absentClaims": 8,
+      "absentClaimRate": 1,
+      "claimDetails": [
+        {
+          "claim": "The Google Pixel 8a is a compelling mid-range smartphone, primarily driven by its outstanding camera system.",
+          "grounded": false,
+          "overlap": 0.1818,
+          "missingNumbers": []
+        },
+        {
+          "claim": "Expert reviews highlight its superior photo processing, including Night Sight and Magic Editor, as the main reason to buy.",
+          "grounded": false,
+          "overlap": 0.5714,
+          "missingNumbers": []
+        },
+        {
+          "claim": "Users on Amazon echo this sentiment, praising the still photography and call quality.",
+          "grounded": false,
+          "overlap": 0.375,
+          "missingNumbers": []
+        },
+        {
+          "claim": "The phone runs a clean version of Android and is guaranteed seven years of updates, making it a solid long-term choice.",
+          "grounded": false,
+          "overlap": 0.3846,
+          "missingNumbers": []
+        },
+        {
+          "claim": "However, there are notable drawbacks.",
+          "grounded": false,
+          "overlap": 0,
+          "missingNumbers": []
+        },
+        {
+          "claim": "The 18W charging is widely criticized as being too slow, and battery life is a mixed bag, with many users reporting it doesn't last a full day.",
+          "grounded": false,
+          "overlap": 0.4,
+          "missingNumbers": []
+        },
+        {
+          "claim": "The Tensor G3 chip also tends to heat up during intensive camera use, and a few users have experienced network drops.",
+          "grounded": false,
+          "overlap": 0.5,
+          "missingNumbers": []
+        },
+        {
+          "claim": "Despite these issues, the combination of a best-in-class camera, clean software, and strong value proposition makes it a strong recommendation for those who prioritize photography.",
+          "grounded": false,
+          "overlap": 0.3125,
+          "missingNumbers": []
+        }
+      ]
+    }
+  ],
+  "failures": [
+    "cost_per_query_usd: no published USD rate"
+  ]
+}
