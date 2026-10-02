@@ -5,9 +5,10 @@ Routed by evals-start: an eval pipeline exists, so `eval-audit`. Findings by imp
 ## 3. Judge validation
 
 ### LLM judge is not validated on held-out data
-**Status:** Problem exists (not fixed, blocked).
-The judge has TPR 0.918 / TNR 0.980 on 98 of 130 dev claims, 7 of 19 real claims, and 0 of 170 test claims. Dev was where the prompt was written, so these numbers are optimistic. A retry on 2026-10-03 hit Groq's 200k tokens/day limit for `gpt-oss-120b` again.
-**Fix:** run the three commands in `README.md` ("Not done yet") when quota allows, add `test` and `real` to `baseline.json`, and do not edit the prompt after seeing test. Until then, do not use the judge's numbers for product claims.
+**Status:** Partly fixed on 2026-10-03.
+A second judge, `gemini-3.5-flash-lite` (Gemini free tier, same `grounding-v1` prompt, no prompt changes), ran on dev, then test once, then real. Held-out test: TPR 0.963 (78/81), TNR 0.978 (87/89). Real (50 claims): TPR 1.000 (37/37), TNR 0.538 (7/13). The 6 real misses are all small exaggerations inside grounded sentences ("more efficient A18 chip", "camera enhancements", "ads on the home screen", "a common complaint" twice, "mid-range"). So synthetic test TNR overstates how well it catches unsupported claims in real summaries.
+The original `gpt-oss-120b` judge is still not validated: 98 of 130 dev, 3 of 170 test, 18 of 50 real. Groq's 200k tokens/day free limit was used up again on 2026-10-03.
+**Fix:** CI now gates the Gemini judge's cached verdicts against `baseline.gemini-3.5-flash-lite.json`. Next: add real claims that look like the 6 misses (exaggerated quantifiers, invented tiers) to the synthetic generator, and get a human to check the 13 real Fail labels. Until real TNR improves, do not publish a hallucination rate from this judge alone.
 
 ### Few-shot leakage
 **Status:** OK. The 4 few-shot examples come from the train split. Splits are by source, so no source appears in two splits.
@@ -28,9 +29,8 @@ The judge has TPR 0.918 / TNR 0.980 on 98 of 130 dev claims, 7 of 19 real claims
 ## 5. Labeled data
 
 ### Too few real labeled claims
-**Status:** Problem exists. 19 real claims (13 Pass, 6 Fail). The target is about 50 of each.
-Generating more real summaries needs `SARVAM_API_KEY`, which is not available here. The 360 synthetic claims cover 10 observed claim types, but labels follow from the claim type and only 64 were audited by hand (5 overrides).
-**Fix:** use the weekly sampling loop in `README.md` ("Monitoring path") once production summaries exist.
+**Status:** Improved, still short. 50 real claims (37 Pass, 13 Fail), up from 19. The 31 new claims come from a live `sarvam-105b` re-run of GS-T7 on 2026-10-03. That run used fixture sources because Firecrawl's free credits were used up (0 of 1,000 left until 2026-10-23), so the sources are short. The target is still about 50 Fail claims. The 360 synthetic claims cover 10 observed claim types, but labels follow from the claim type and only 64 were audited by hand (5 overrides).
+**Fix:** re-run GS-T7 with live scraping once Firecrawl credits reset, and use the weekly sampling loop in `README.md` ("Monitoring path") once production summaries exist.
 
 ## 4. Human review
 

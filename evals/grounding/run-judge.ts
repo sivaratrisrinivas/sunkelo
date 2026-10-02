@@ -13,6 +13,7 @@
  *   npx tsx evals/grounding/run-judge.ts --split dev --live    # call the judge, fill cache
  *   npx tsx evals/grounding/run-judge.ts --split test --live   # run once, at the end
  *   npx tsx evals/grounding/run-judge.ts --check               # CI: offline, from cache
+ *   (--check also gates each judge in EXTRA_JUDGES against its own baseline file)
  */
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
@@ -139,13 +140,13 @@ function summarize(name: string, labels: GroundingVerdict[], preds: GroundingVer
   return { ...c, ...r };
 }
 
-async function main(): Promise<number> {
+async function main(modelOverride?: string, baselineOverride?: string): Promise<number> {
   const args = process.argv.slice(2);
   const live = args.includes("--live");
   const check = args.includes("--check");
   const splitArg = args[args.indexOf("--split") + 1];
   const splits = args.includes("--split") ? [splitArg] : ["dev", "test", "real"];
-  const model = process.env.JUDGE_MODEL || "openai/gpt-oss-120b";
+  const model = modelOverride || process.env.JUDGE_MODEL || "openai/gpt-oss-120b";
   const config = judgeConfigFromEnv();
   if (live && !config) {
     console.error("--live needs JUDGE_API_KEY or GROQ_API_KEY");
@@ -220,7 +221,9 @@ async function main(): Promise<number> {
     if (args.includes("--show-errors")) errors.forEach((e) => console.log(`    miss ${e}`));
     report[split] = { n: labels.length, missing, judge: judgeRates, overlap: overlapRates, overlapAll, byRelation };
     if (check) {
-      const baseline = JSON.parse(readFileSync(join(HERE, "baseline.json"), "utf8")) as Record<
+      const baselinePath =
+        baselineOverride ?? (args.includes("--baseline") ? args[args.indexOf("--baseline") + 1] : join(HERE, "baseline.json"));
+      const baseline = JSON.parse(readFileSync(baselinePath, "utf8")) as Record<
         string,
         { n: number; tpr: number; tnr: number }
       >;
@@ -243,6 +246,23 @@ async function main(): Promise<number> {
   return 0;
 }
 
+/** Extra judges gated by `--check`: baseline.<model>.json next to baseline.json. */
+export const EXTRA_JUDGES: Record<string, string> = {
+  "gemini-3.5-flash-lite": join(HERE, "baseline.gemini-3.5-flash-lite.json"),
+};
+
+async function cli(): Promise<number> {
+  let code = await main();
+  const args = process.argv.slice(2);
+  if (args.includes("--check") && !process.env.JUDGE_MODEL && !args.includes("--baseline")) {
+    for (const [model, baseline] of Object.entries(EXTRA_JUDGES)) {
+      console.log(`\n--- second judge: ${model} ---`);
+      code = Math.max(code, await main(model, baseline));
+    }
+  }
+  return code;
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  main().then((code) => process.exit(code));
+  cli().then((code) => process.exit(code));
 }
