@@ -30,7 +30,7 @@ Pass is the positive class.
 | test | word overlap | 170 | 0.469 (38/81) | 0.607 (54/89) |
 | dev | LLM judge | 98 of 130 | 0.918 (45/49) | 0.980 (48/49) |
 | test | LLM judge | not run | | |
-| real | LLM judge | not run | | |
+| real | LLM judge | 7 of 19 | 1.000 (5/5) | 0.500 (1/2) |
 
 Word overlap is near a coin flip on synthetic claims and marks every one of the 13 grounded real
 claims as absent. So the GS-T7 "absent-claim rate 0.7586" mostly measures paraphrase, not
@@ -44,7 +44,7 @@ summary judgment.
 
 The judge is **not validated** until it runs on test and real. Groq's free tier allows 200,000
 tokens per day for this model and each call uses about 1,700 tokens, so about 115 calls a day.
-That ran out after 98 dev verdicts. To finish (cached verdicts are reused, nothing is paid twice):
+That ran out after 98 dev and 7 real verdicts (7 real is far too few to mean anything). To finish (cached verdicts are reused, nothing is paid twice):
 
 ```bash
 GROQ_API_KEY=... JUDGE_MAX_TOKENS=600 npx tsx evals/grounding/run-judge.ts --split real --live
