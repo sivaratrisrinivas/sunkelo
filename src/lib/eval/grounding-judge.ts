@@ -137,12 +137,14 @@ export async function judgeClaimWithLlm(
       });
     } catch (e) {
       lastError = `network: ${(e as Error).message}`;
+      if (process.env.JUDGE_DEBUG) console.error(`judge retry: ${lastError}`);
       await sleep(2000 * 2 ** Math.min(attempt, 4));
       continue;
     }
     if (res.status === 429 || res.status >= 500) {
       lastError = `HTTP ${res.status}`;
       const retryAfter = Number(res.headers.get("retry-after"));
+      if (process.env.JUDGE_DEBUG) console.error(`judge retry: ${lastError}, retry-after ${retryAfter}`, (await res.clone().text()).slice(0, 400));
       await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2000 * 2 ** attempt);
       continue;
     }
@@ -155,6 +157,7 @@ export async function judgeClaimWithLlm(
       return parsed;
     }
     lastError = "unparseable judge output";
+    if (process.env.JUDGE_DEBUG) console.error("judge retry: unparseable output");
   }
   throw new Error(`judge call kept failing: ${lastError}`);
 }

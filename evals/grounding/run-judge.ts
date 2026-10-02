@@ -177,6 +177,7 @@ async function main(): Promise<number> {
           v = { key, id: row.id, result: out.result, critique: out.critique, model };
           appendFileSync(CACHE, JSON.stringify(v) + "\n");
           cache.set(key, v);
+          if (cache.size % 10 === 0) console.error(`  ${cache.size} cached verdicts`);
         } catch (e) {
           console.error(`${row.id}: ${(e as Error).message}`);
         }
