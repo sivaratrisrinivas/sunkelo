@@ -66,14 +66,17 @@ GS-T7 ran at 2026-08-24T22:39:20.607Z against 5 products. Synthesis model is sar
 
 Re-run with `npm run bench:gs-t7`. Raw JSON is `bench/gs-t7-results.json`.
 
+A re-run on 2026-10-03 (`bench/gs-t7-results-2026-10-03.json`) is not comparable to the numbers above. Firecrawl's free credits were used up (0 of 1,000 left until 2026-10-23), so all 5 products used the short fixture sources, and Upstash Redis was not configured, so the cache metric is failed. sarvam-105b wrote 32 claims; word overlap called 21 absent (0.656). By hand labels 7 of the 31 unique claims are unsupported. Sarvam usage was 3,089 prompt and 2,925 completion tokens for 5 calls (about ₹0.06 at list price).
+
 ## Evals
 
 `evals/grounding/` checks whether summary claims are supported by the scraped sources. Details and commands: `evals/grounding/README.md`.
 
-- 379 labeled claims: 19 real claims from the GS-T7 run, labeled by hand, and 360 generated claims across 10 claim types, split by source into train 60, dev 130, test 170.
-- The word-overlap check behind the absent-claim rate above is not reliable. On the 19 real claims it marked all 13 supported claims as absent (TPR 0/13, TNR 5/6). On the dev and test synthetic splits it is near chance (TPR 0.42 and 0.47, TNR 0.61). By hand labels, 6 of 19 real claims are unsupported, not 22 of 29.
-- An LLM judge (gpt-oss-120b on Groq) scored TPR 0.918 (45/49) and TNR 0.980 (48/49) on 98 of the 130 dev claims. It has not yet run on test or on the real claims because the Groq free-tier daily token limit ran out, so it is not validated yet.
-- CI runs `npm run eval:grounding -- --check` offline from cached verdicts.
+- 410 labeled claims: 50 real claims from sarvam-105b summaries (19 from GS-T7, 31 from a 2026-10-03 re-run), labeled by hand, and 360 generated claims across 10 claim types, split by source into train 60, dev 130, test 170.
+- The word-overlap check behind the absent-claim rate above is not reliable. On the 50 real claims it finds 10 of 37 supported claims (TPR 0.270) and 11 of 13 unsupported ones (TNR 0.846). On the dev and test synthetic splits it is near chance (TPR 0.42 and 0.47, TNR 0.61). By hand labels, 13 of 50 real claims are unsupported.
+- An LLM judge (gemini-3.5-flash-lite, Gemini free tier, same prompt) scored TPR 0.963 (78/81) and TNR 0.978 (87/89) on the held-out test split, run once. On the 50 real claims it passes all 37 supported claims but also passes 6 of the 13 unsupported ones (TNR 0.538). It is good at invented facts and changed numbers, and weak at small exaggerations in real summaries ("a common complaint", "camera enhancements"). Do not use it alone to claim a hallucination rate.
+- The original judge (gpt-oss-120b on Groq) scored TPR 0.918 (45/49) and TNR 0.980 (48/49) on 98 of 130 dev claims. It still has only 3 of 170 test verdicts because the Groq free-tier limit of 200,000 tokens per day keeps running out.
+- CI runs `npm run eval:grounding -- --check` offline from cached verdicts and gates both judges.
 
 ## Current limitation
 
