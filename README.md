@@ -17,7 +17,7 @@ Supported languages: English, Hindi, Bengali, Tamil, Telugu, Gujarati, Kannada, 
 Run it on your machine:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -103,7 +103,7 @@ Contributor details from here down. You still need these to run a full review lo
 2. Install and run:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
