@@ -1,0 +1,5 @@
+{"id": "s020-summary_judgment", "label": "Fail", "reason": "'ideal for small kitchens' is not in the source; it only says size may deter people who need a spacious appliance", "reviewer": "agent"}
+{"id": "s021-summary_judgment", "label": "Fail", "reason": "'good value' is a judgment on price, which the source never discusses", "reviewer": "agent"}
+{"id": "s006-summary_judgment", "label": "Fail", "reason": "source says 'good value'; the claim inflates it to 'excellent value'", "reviewer": "agent"}
+{"id": "s012-paraphrase", "label": "Fail", "reason": "'efficient heating' is not in the source (it praises temperature control and crisp results)", "reviewer": "agent"}
+{"id": "s006-unit_format", "label": "Fail", "reason": "'popular among Indian buyers' is not supported; the source says mixed reception", "reviewer": "agent"}
